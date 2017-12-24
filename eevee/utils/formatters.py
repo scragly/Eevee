@@ -56,7 +56,8 @@ def make_embed(msg_type='', title=None, title_url=None, icon=None,
     if guild and not msg_colour:
         msg_colour = colour(guild)
     else:
-        msg_colour = colour(msg_colour)
+        if not isinstance(msg_colour, discord.Colour):
+            msg_colour = colour(msg_colour)
     embed = discord.Embed(description=content, colour=msg_colour)
     if not title_url:
         title_url = discord.Embed.Empty

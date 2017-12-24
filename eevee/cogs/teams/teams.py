@@ -1,17 +1,23 @@
+import re
+
 import discord
 from discord.ext import commands
+
+from eevee import command, checks
+from eevee.utils import make_embed
 
 class Teams:
     """Team Management"""
 
     def __init__(self, bot):
         self.bot = bot
-
-    def team_list(self):
-        """Returns a list of playable teams"""
-        config = self.bot.config
-        teams = config['teams']['team_list']
-        return teams
+        self.team_list = bot.config.team_list
+        self.team_colours = bot.config.team_colours
+        self.team_emoji = bot.config.team_emoji
+        self.bot.config.command_categories["Trainer"] = {
+            "index" : "4",
+            "description" : "Standard Pokemon Go Trainer Commands"
+        }
 
     @staticmethod
     def role_heirarchy_check(ctx: commands.Context, role: discord.Role):
@@ -24,9 +30,8 @@ class Teams:
 
     def get_team_roles(self, guild: discord.Guild):
         """Returns a list of guild roles for all teams."""
-        teams = self.team_list()
         team_roles = []
-        for team in teams:
+        for team in self.team_list:
             team_role = self.get_team_role(guild, team)
             if team_role:
                 team_roles.append(team_role)
@@ -34,31 +39,38 @@ class Teams:
 
     def get_team_colour(self, team: str):
         """Returns the teams colour as discord.Colour."""
-        colour_dict = self.bot.config['teams']['team_colours']
-        return discord.Colour(colour_dict[team])
+        if team in self.team_list:
+            return discord.Colour(int(self.team_colours[team], 16))
+        else:
+            return None
 
     def get_team_emoji(self, team: discord.Role):
         """Returns the emoji representing the given team."""
-        emoji_dict = self.bot.config['teams']['team_emoji']
-        return emoji_dict[team.name]
+        return self.team_emoji[team.name]
 
-    async def create_team_roles(self, guild: discord.Guild):
+    @command(category="Server Config")
+    @checks.admin()
+    async def create_teams(self, ctx):
         """Creates new team roles for the guild.
 
         By default, each team role is assigned their default colours as
         set in the config file, and are set to be shown seperately in
         the member list.
         """
-        teams = self.team_list()
-        for team in teams:
+        new_teams = []
+        existing_teams = []
+        guild = ctx.guild
+        for team in self.team_list:
             team_role = self.get_team_role(guild, team)
             if team_role is None:
                 team_colour = self.get_team_colour(team)
                 await guild.create_role(
                     reason="Eevee Bot auto-created team roles.",
                     name=team, colour=team_colour, hoist=True)
+        embed = make_embed(msg_type='success', title="Team roles created!")
+        await ctx.send(embed=embed)
 
-    @commands.command()
+    @command(category="Trainer")
     async def team(self, ctx, team: str):
         """Set your team role."""
         guild = ctx.guild
@@ -67,37 +79,40 @@ class Teams:
         team_role = None
 
         if not team_roles:
-            await ctx.send(_("Teams aren't setup for this server!"))
+            await ctx.send("Teams aren't setup for this server!")
             return
 
         for role in team_roles:
             if role.name.lower() == team.lower():
                 team_role = role
             if role in member.roles:
-                await ctx.send(_("You already have a team role!"))
+                await ctx.send("You already have a team role!")
                 return
 
         if team_role is None:
-            msg = _("I don't know of any team named **{}**!\n"
-                    "Try one of the following:").format(team)
+            msg = ("I don't know of any team named **{}**!\n"
+                   "Try one of the following:").format(team)
             for role in team_roles:
                 msg += "\n**{}**".format(role.name)
             await ctx.send(msg)
             return
 
         if not self.role_heirarchy_check(ctx, team_role):
-            await ctx.send(_("There's an issue with this team role!\n"
-                             "Please get an admin to check that the team "
-                             "roles are below my highest role."))
+            await ctx.send("There's an issue with this team role!\n"
+                           "Please get an admin to check that the team "
+                           "roles are below my highest role.")
 
         try:
             await member.add_roles(team_role)
             team_emoji = self.get_team_emoji(team_role)
-            await ctx.send(_(
-                "Welcome to {team_name}, {member}! {team_emoji}"
-                "").format(team_name=team_role.name.capitalize(),
-                           member=member.mention,
-                           team_emoji=team_emoji))
+            emoji_id = re.search("<:\w+:([\d]+)>", team_emoji).group(1)
+            emoji = discord.utils.get(guild.emojis, id=int(emoji_id))
+            embed = make_embed(
+                title=f"Welcome to {team_role.name.capitalize()}, "
+                      f"{member.display_name}!",
+                msg_colour=team_role.colour,
+                icon=emoji.url)
+            await ctx.send(embed=embed)
         except discord.Forbidden:
-            await ctx.send(_("I can't add roles!\n"
-                             "Please get an admin to check my permissions."))
+            await ctx.send("I can't add roles!\n"
+                           "Please get an admin to check my permissions.")
