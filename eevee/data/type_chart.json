@@ -1,0 +1,158 @@
+{
+  "Ghost": {
+    "Ghost": 1.4,
+    "Normal": 0.51,
+    "Poison": 0.714,
+    "Dark": 1.4,
+    "Fighting": 0.51,
+    "Bug": 0.714
+  },
+  "Steel": {
+    "Steel": 0.714,
+    "Ice": 0.714,
+    "Normal": 0.714,
+    "Fire": 1.4,
+    "Psychic": 0.714,
+    "Flying": 0.714,
+    "Poison": 0.51,
+    "Dragon": 0.714,
+    "Fighting": 1.4,
+    "Rock": 0.714,
+    "Fairy": 0.714,
+    "Grass": 0.714,
+    "Bug": 0.714,
+    "Ground": 1.4
+  },
+  "Dark": {
+    "Ghost": 0.714,
+    "Psychic": 0.51,
+    "Fighting": 1.4,
+    "Dark": 0.714,
+    "Fairy": 1.4,
+    "Bug": 1.4
+  },
+  "Electric": {
+    "Steel": 0.714,
+    "Flying": 0.714,
+    "Electric": 0.714,
+    "Ground": 1.4
+  },
+  "Ice": {
+    "Steel": 1.4,
+    "Fire": 1.4,
+    "Ice": 0.714,
+    "Fighting": 1.4,
+    "Rock": 1.4
+  },
+  "Normal": {
+    "Ghost": 0.51,
+    "Fighting": 1.4
+  },
+  "Fire": {
+    "Steel": 0.714,
+    "Fire": 0.714,
+    "Ice": 0.714,
+    "Water": 1.4,
+    "Rock": 1.4,
+    "Fairy": 0.714,
+    "Grass": 0.714,
+    "Bug": 0.714,
+    "Ground": 1.4
+  },
+  "Psychic": {
+    "Ghost": 1.4,
+    "Dark": 1.4,
+    "Psychic": 0.714,
+    "Bug": 1.4,
+    "Fighting": 0.714
+  },
+  "Flying": {
+    "Electric": 1.4,
+    "Fighting": 0.714,
+    "Ice": 1.4,
+    "Rock": 1.4,
+    "Grass": 0.714,
+    "Bug": 0.714,
+    "Ground": 0.51
+  },
+  "Poison": {
+    "Psychic": 1.4,
+    "Poison": 0.714,
+    "Fighting": 0.714,
+    "Fairy": 0.714,
+    "Grass": 0.714,
+    "Bug": 0.714,
+    "Ground": 1.4
+  },
+  "Dragon": {
+    "Electric": 0.714,
+    "Fire": 0.714,
+    "Ice": 1.4,
+    "Dragon": 1.4,
+    "Water": 0.714,
+    "Fairy": 1.4,
+    "Grass": 0.714
+  },
+  "Water": {
+    "Steel": 0.714,
+    "Electric": 1.4,
+    "Fire": 0.714,
+    "Ice": 0.714,
+    "Water": 0.714,
+    "Grass": 1.4
+  },
+  "Fighting": {
+    "Psychic": 1.4,
+    "Flying": 1.4,
+    "Dark": 0.714,
+    "Rock": 0.714,
+    "Fairy": 1.4,
+    "Bug": 0.714
+  },
+  "Rock": {
+    "Steel": 1.4,
+    "Normal": 0.714,
+    "Fire": 0.714,
+    "Flying": 0.714,
+    "Poison": 0.714,
+    "Water": 1.4,
+    "Fighting": 1.4,
+    "Grass": 1.4,
+    "Ground": 1.4
+  },
+  "Fairy": {
+    "Steel": 1.4,
+    "Poison": 1.4,
+    "Dragon": 0.51,
+    "Dark": 0.714,
+    "Fighting": 0.714,
+    "Bug": 0.714
+  },
+  "Grass": {
+    "Electric": 0.714,
+    "Fire": 1.4,
+    "Flying": 1.4,
+    "Poison": 1.4,
+    "Water": 0.714,
+    "Ice": 1.4,
+    "Grass": 0.714,
+    "Bug": 1.4,
+    "Ground": 0.714
+  },
+  "Bug": {
+    "Fire": 1.4,
+    "Flying": 1.4,
+    "Fighting": 0.714,
+    "Rock": 1.4,
+    "Grass": 0.714,
+    "Ground": 0.714
+  },
+  "Ground": {
+    "Electric": 0.51,
+    "Ice": 1.4,
+    "Water": 1.4,
+    "Poison": 0.714,
+    "Rock": 0.714,
+    "Grass": 1.4
+  }
+}
