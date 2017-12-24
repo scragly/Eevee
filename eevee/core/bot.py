@@ -20,6 +20,7 @@ class Eevee(commands.Bot):
         self._shutdown_mode = ExitCodes.CRITICAL
         self.counter = Counter()
         self.core_dir = os.path.dirname(os.path.realpath(__file__))
+        self.data_dir = os.path.join(self.core_dir, "..", "data")
         self.config = config
         self.token = config.bot_token
         self.req_perms = discord.Permissions(config.bot_permissions)
