@@ -20,6 +20,6 @@ var/
 .installed.cfg
 *.egg
 .vscode/
-meowth/config.py
+eevee/config.py
 docs/
 logs/
