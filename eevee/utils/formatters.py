@@ -1,4 +1,14 @@
+import asyncio
+import functools
+
+from io import BytesIO
+
+import aiohttp
+
+from colorthief import ColorThief
+
 import discord
+
 
 def colour(*args):
     """Returns a discord Colour object.
@@ -20,8 +30,9 @@ def colour(*args):
     else:
         return discord.Colour.lighter_grey()
 
-def make_embed(msg_type='', title=None, title_url=None, icon=None,
-               content=None, msg_colour=None, guild=None):
+def make_embed(msg_type='', title=None, icon=None, content=None,
+               msg_colour=None, guild=None, title_url=None,
+               thumbnail='', image=''):
     """Returns a formatted discord embed object.
 
     Define either a type or a colour, not both.
@@ -65,4 +76,26 @@ def make_embed(msg_type='', title=None, title_url=None, icon=None,
         icon = discord.Embed.Empty
     if title:
         embed.set_author(name=title, icon_url=icon, url=title_url)
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
+    if image:
+        embed.set_image(url=image)
     return embed
+
+async def _read_image_from_url(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            return await resp.read()
+
+async def _dominant_color_from_url(url):
+    """Returns an rgb tuple consisting the dominant color given a image url."""
+    with BytesIO(await _read_image_from_url(url)) as fp:
+        loop = asyncio.get_event_loop()
+        get_colour = functools.partial(ColorThief(fp).get_color, quality=1)
+        return await loop.run_in_executor(None, get_colour)
+
+async def url_color(url):
+    return discord.Colour.from_rgb(*(await _dominant_color_from_url(url)))
+
+async def user_color(user):
+    return await url_color(user.avatar_url_as(static_format='png'))
