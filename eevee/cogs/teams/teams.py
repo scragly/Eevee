@@ -6,6 +6,16 @@ from discord.ext import commands
 from eevee import command, checks
 from eevee.utils import make_embed
 
+def has_no_team():
+    def check(ctx):
+        team_roles = ctx.command.callback.__class__.get_team_roles(ctx.guild)
+        print(team_roles)
+        for role in team_roles:
+            if role in ctx.author.member.roles:
+                return False
+        return True
+    return commands.check(check)
+
 class Teams:
     """Team Management"""
 
@@ -16,7 +26,7 @@ class Teams:
         self.team_emoji = bot.config.team_emoji
         self.bot.config.command_categories["Trainer"] = {
             "index" : "4",
-            "description" : "Standard Pokemon Go Trainer Commands"
+            "description" : "Trainer Commands"
         }
 
     @staticmethod
@@ -71,6 +81,7 @@ class Teams:
         await ctx.send(embed=embed)
 
     @command(category="Trainer")
+    @has_no_team()
     async def team(self, ctx, team: str):
         """Set your team role."""
         guild = ctx.guild
