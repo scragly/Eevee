@@ -25,7 +25,7 @@ class Teams:
         self.team_colours = bot.config.team_colours
         self.team_emoji = bot.config.team_emoji
         self.bot.config.command_categories["Trainer"] = {
-            "index" : "4",
+            "index" : "25",
             "description" : "Trainer Commands"
         }
 
@@ -59,7 +59,7 @@ class Teams:
         return self.team_emoji[team.name]
 
     @command(category="Server Config")
-    @checks.admin()
+    @checks.is_admin()
     async def create_teams(self, ctx):
         """Creates new team roles for the guild.
 
