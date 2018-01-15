@@ -1,7 +1,6 @@
 from discord.ext import commands
 import discord.utils
 import errors
-import asyncio
 
 def is_owner_check(ctx):
     author = str(ctx.message.author.id)

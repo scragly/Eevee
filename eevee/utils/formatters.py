@@ -14,11 +14,14 @@ def colour(*args):
     """Returns a discord Colour object.
 
     Pass one as an argument to define colour:
+        `int` match colour value.
         `str` match common colour names.
         `discord.Guild` bot's guild colour.
         `None` light grey.
     """
     arg = args[0] if args else None
+    if isinstance(arg, int):
+        return discord.Colour(arg)
     if isinstance(arg, str):
         colour = arg
         try:
@@ -35,9 +38,9 @@ def make_embed(msg_type='', title=None, icon=None, content=None,
                thumbnail='', image=''):
     """Returns a formatted discord embed object.
 
-    Define either a type or a colour, not both.
+    Define either a type or a colour.
     Types are:
-    error, warning, info, success.
+    error, warning, info, success, help.
     """
     embed_types = {
         'error':{
@@ -99,3 +102,27 @@ async def url_color(url):
 
 async def user_color(user):
     return await url_color(user.avatar_url_as(static_format='png'))
+
+def bold(msg: str):
+    """Format to bold markdown text"""
+    return f'**{msg}**'
+
+def italics(msg: str):
+    """Format to italics markdown text"""
+    return f'*{msg}*'
+
+def bolditalics(msg: str):
+    """Format to bold italics markdown text"""
+    return f'***{msg}***'
+
+def code(msg: str):
+    """Format to markdown code block"""
+    return f'```{msg}```'
+
+def pycode(msg: str):
+    """Format to code block with python code highlighting"""
+    return f'```py\n{msg}```'
+
+def ilcode(msg: str):
+    """Format to inline markdown code"""
+    return f'`py\n{msg}`'

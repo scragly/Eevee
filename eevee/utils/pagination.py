@@ -23,7 +23,8 @@ class Pagination:
     If the user does not reply within 2 minutes then the pagination
     interface exits automatically.
     """
-    def __init__(self, ctx, entries, *, per_page=12, show_entry_count=True):
+    def __init__(self, ctx, entries, *, per_page=12, show_entry_count=True,
+                 title='Help', msg_type='help'):
         self.bot = ctx.bot
         self.entries = entries
         self.message = ctx.message
@@ -35,7 +36,7 @@ class Pagination:
             pages += 1
         self.maximum_pages = pages
         self._mention = re.compile(r'<@\!?([0-9]{1,19})>')
-        self.embed = make_embed(title="Help", msg_type='help')
+        self.embed = make_embed(title=title, msg_type=msg_type)
         self.default_icon = self.embed.author.icon_url
         self.paginating = len(entries) > per_page
         self.show_entry_count = show_entry_count
@@ -66,7 +67,6 @@ class Pagination:
             if not self.permissions.add_reactions:
                 raise CannotPaginate(
                     'Bot does not have add reactions permission.')
-
             if not self.permissions.read_message_history:
                 raise CannotPaginate(
                     'Bot does not have Read Message History permission.')
@@ -134,13 +134,24 @@ class Pagination:
 
         signature = self._command_signature
 
+        requirements = getattr(self, 'requirements', [])
+        if requirements:
+            cmd_msg = ""
+            for req in requirements:
+                cmd_msg += (
+                    "{}\n"
+                ).format(req)
+            self.embed.add_field(
+                name="Requirements", value=f"{cmd_msg}", inline=False)
+
         if entries:
             cmd_msg = ""
             for entry in entries:
                 cmd_msg += (
                     "{}\n"
                 ).format(signature(entry))
-            self.embed.add_field(name="Commands", value=f"{cmd_msg}")
+            self.embed.add_field(
+                name="Commands", value=f"{cmd_msg}", inline=False)
 
         if self.maximum_pages:
             self.embed.set_author(
@@ -329,6 +340,26 @@ class Pagination:
         self.description = description
         return commands
 
+    @staticmethod
+    def _command_requirements(cmd):
+        requirements = []
+        for check in cmd.checks:
+            name = getattr(check, '__qualname__', '')
+
+            if name[:9] == "check_is_":
+                name = name.replace("check_is_", "").replace("_", " ")
+                name = f"{name} Only".title()
+                requirements.append(name)
+            elif '<locals>' in name:
+                print('yes')
+                name = name.split('.',1)[0]
+                name = name.replace("_", " ").title()
+                requirements.append(name)
+            else:
+                requirements.append(name)
+
+        return requirements
+
     @classmethod
     async def from_category(cls, ctx, category):
         # get the commands
@@ -377,7 +408,7 @@ class Pagination:
         return self
 
     @classmethod
-    async def from_command(cls, ctx, command):
+    async def from_command(cls, ctx, command, **kwargs):
         try:
             entries = sorted(command.commands, key=lambda c: c.name)
         except AttributeError:
@@ -386,13 +417,16 @@ class Pagination:
             entries = [cmd for cmd in entries if (
                 await _can_run(cmd, ctx)) and not cmd.hidden]
 
-        self = cls(ctx, entries)
+        self = cls(ctx, entries, **kwargs)
         self.title = command.signature
 
         if command.description:
             self.description = f'{command.description}\n\n{command.help}'
         else:
             self.description = command.help or 'No help given.'
+        
+        if command.checks:
+            self.requirements = self._command_requirements(command)
 
         self.prefix = self.cleanup_prefix(ctx.bot, ctx.prefix)
         return self
