@@ -8,6 +8,9 @@ from eevee import utils, command, group
 class CogManager:
     """Commands to add, remove and change cogs for Eevee."""
 
+    def __init__(self, bot):
+        self.bot = bot
+
     def __local_check(self, ctx):
         return checks.check_is_co_owner(ctx)
 
@@ -17,8 +20,8 @@ class CogManager:
         if ctx.invoked_subcommand is None:
             await ctx.bot.send_cmd_help(ctx)
 
-    @cog.command()
-    async def list(self, ctx):
+    @cog.command(name="list")
+    async def _list(self, ctx):
         """List all available cogs and their loaded status."""
         cog_folder = "cogs"
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", cog_folder)
@@ -60,19 +63,18 @@ class CogManager:
                 msg_type='error', title=cog+' module not loaded.')
             await ctx.send(embed=embed)
 
-    @cog.command()
+    @cog.group(invoke_without_command=True)
     async def load(self, ctx, cog):
         """Load or reload a cog."""
-        bot = ctx.bot
         cog_folder = "cogs"
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", cog_folder)
         cog_files = [name for _, name, _ in pkgutil.iter_modules([cogs_dir])]
         if cog in cog_files:
             ext_name = ("eevee.cogs."+cog)
-            was_loaded = ext_name in bot.extensions
+            was_loaded = ext_name in ctx.bot.extensions
             try:
-                bot.unload_extension(ext_name)
-                bot.load_extension(ext_name)
+                ctx.bot.unload_extension(ext_name)
+                ctx.bot.load_extension(ext_name)
                 if was_loaded:
                     msg = cog+' module reloaded.'
                 else:
@@ -97,46 +99,36 @@ class CogManager:
 
     @cog.command()
     async def showext(self, ctx):
-        bot = ctx.bot
         embed = utils.make_embed(msg_type='info',
                                  title='Raw Extension List',
-                                 content='\n'.join(bot.extensions))
+                                 content='\n'.join(ctx.bot.extensions))
         await ctx.send(embed=embed)
 
-    @command(category="Owner")
-    async def reload_core(self, ctx):
+    @load.command(name="core")
+    async def _core(self, ctx):
         """Reload Core Commands."""
-        bot = ctx.bot
+        embed = self.load_extension('Core Commands', 'eevee.core.commands')
+        await ctx.send(embed=embed)
+
+    def load_extension(self, name, path):
+        """Loads extensions and returns an embed with the result."""
         try:
-            bot.unload_extension('eevee.core.commands')
-            bot.load_extension('eevee.core.commands')
-            embed = utils.make_embed(msg_type='success',
-                                     title='Core Commands reloaded.')
-            await ctx.send(embed=embed)
+            self.bot.unload_extension(path)
+            self.bot.load_extension(path)
+            embed = utils.make_embed(
+                msg_type='success', title=f'{name} reloaded.')
+            return embed
         except Exception as e:
             msg = "{}: {}".format(type(e).__name__, e)
-            embed = utils.make_embed(msg_type='error',
-                                     title='Error loading Core Commands',
-                                     content=msg)
-            await ctx.send(embed=embed)
+            embed = utils.make_embed(
+                msg_type='error', title=f'Error loading {name}', content=msg)
+            return embed
 
-    @command(category="Owner")
-    async def reload_dm(self, ctx):
-        """Reload Data Manager."""
-        bot = ctx.bot
-        try:
-            bot.unload_extension('eevee.data_manager')
-            bot.load_extension('eevee.data_manager')
-            embed = utils.make_embed(msg_type='success',
-                                     title='Data Manager reloaded.')
-            await ctx.send(embed=embed)
-        except Exception as e:
-            msg = "{}: {}".format(type(e).__name__, e)
-            embed = utils.make_embed(msg_type='error',
-                                     title='Error loading Data Manager',
-                                     content=msg)
-            await ctx.send(embed=embed)
-
+    @command(category='Owner', name='reload', aliases=['load'])
+    async def _reload(self, ctx, cog):
+        """Reload Cog"""
+        ctx.message.content = f'{ctx.prefix}cog load {cog}'
+        await ctx.bot.process_commands(ctx.message)
 
 def setup(bot):
-    bot.add_cog(CogManager())
+    bot.add_cog(CogManager(bot))
