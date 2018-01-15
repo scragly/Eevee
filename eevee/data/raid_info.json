@@ -145,6 +145,11 @@
 			"max_cp"  : 2328,
 			"max_cp_w": 2910
 		},
+		"kyogre"     :{
+			"level"   : 5,
+			"max_cp"  : 2328,
+			"max_cp_w": 2910
+		},
 		"mewtwo"      : {
 			"level"   : 5,
 			"max_cp"  : 2275,
