@@ -1,6 +1,10 @@
+import os
+import json
+
 import discord
 
 from eevee import command, checks, utils
+from eevee.utils.formatters import code
 
 class Tests:
     """Test Features"""
@@ -25,7 +29,13 @@ class Tests:
                 "`Embed links` permission to send this")
 
     @command()
-    async def embed_test(self, ctx, title=None, content=None, msg_type='', colour=None, icon_url=None):
+    async def embed_test(self,
+                         ctx,
+                         title=None,
+                         content=None,
+                         msg_type='',
+                         colour=None,
+                         icon_url=None):
         embed = utils.make_embed(
             msg_type=msg_type, title=title, content=content,
             msg_colour=colour, guild=ctx.guild, icon=icon_url)
