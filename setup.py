@@ -28,7 +28,8 @@ setup(
     install_requires=[
         'discord.py',
         'python-dateutil>=2.6',
-        'asyncpg>=0.13'
+        'asyncpg>=0.13',
+        'python-Levenshtein>=0.12'
     ],
 
     dependency_links=[
