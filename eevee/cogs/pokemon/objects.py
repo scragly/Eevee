@@ -23,6 +23,13 @@ class Pokemon():
         return self.name in list(self.bot.raid_pokemon.keys())
 
     @property
+    def is_exraid(self):
+        """bool : Indicates if the pokemon can show in Raids"""
+        if self.is_raid:
+            return self.bot.raid_pokemon[self.name].get('exraid', False)
+        return False
+
+    @property
     def raid_level(self):
         """Returns raid egg level"""
         return self.bot.raid_pokemon[self.name]["level"] if self.is_raid else None
@@ -86,8 +93,16 @@ class Pokemon():
 
     @classmethod
     async def convert(cls, ctx, argument):
-        pkmn_list = list(ctx.bot.pkmn_info.keys())
-        match, score = fuzzymatch.get_match(pkmn_list, argument)
+        if argument.isdigit():
+            try:
+                match = list(ctx.bot.pkmn_info.keys())[int(argument)-1]
+                score = 100
+            except IndexError:
+                raise commands.errors.BadArgument(
+                    'Pokemon ID "{}" not valid'.format(argument))
+        else:
+            pkmn_list = list(ctx.bot.pkmn_info.keys())
+            match, score = fuzzymatch.get_match(pkmn_list, argument)
         if match:
             if score >= 80:
                 result = cls(ctx.bot, str(match), ctx.guild)
@@ -104,4 +119,7 @@ class Pokemon():
         return result
 
 class RaidEgg:
-    pass
+
+    @classmethod
+    async def convert(cls, ctx, argument):
+        return cls(argument)

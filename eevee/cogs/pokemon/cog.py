@@ -47,10 +47,12 @@ class Pokedex:
 
     def pd_raid_info(self, pokemon):
         msg = (
-            f'`Level                  :` {pokemon.raid_level}\n'
-            f'`Max Capture CP         :` {pokemon.max_raid_cp()}\n'
-            f'`Max CP w/ Weather Boost:` '
-            f'{pokemon.max_raid_cp(weather_boost=True)}\n')
+            f"`{'Level':<23}:` {pokemon.raid_level}\n"
+            f"`{'Max Capture CP':<23}:` {pokemon.max_raid_cp()}\n"
+            f"`{'Max CP w/ Weather Boost':<23}:` "
+            f"{pokemon.max_raid_cp(weather_boost=True)}\n")
+        if pokemon.is_exraid:
+            msg += f"`{'Exraid':<23}:` {pokemon.is_exraid}"
         return msg
 
     def pd_type_info(self, pokemon):
@@ -155,13 +157,15 @@ class Pokedex:
             await ctx.bot.process_commands(ctx.message)
 
     @group(category="Pokedex", aliases=["pd"], invoke_without_command=True)
-    async def pokedex(self, ctx, *, pokemon: Pokemon):
+    async def pokedex(self, ctx, *, pokemon: Pokemon = "Eevee"):
         """Return Pokemon Info"""
         if isinstance(pokemon, Pokemon):
             embed = await self.pd_pokemon(pokemon)
             await ctx.send(embed=embed)
-        else:
+        elif isinstance(pokemon, dict):
             await self.did_you_mean(ctx, pokemon)
+        else:
+            await ctx.send(pokemon or "None")
 
     @pokedex.command()
     async def raid(self, ctx, *, arg: Multi(int, Pokemon)):
@@ -187,3 +191,33 @@ class Pokedex:
 
         elif isinstance(arg, str):
             await self.did_you_mean(ctx, arg)
+
+
+    @pokedex.command()
+    async def dump(self, ctx):
+        conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
+        c = conn.cursor()
+        index = 1
+        new_dict = {'type_chart':ctx.bot.type_chart, 'pokemon':{}}
+        for pkmn, data in ctx.bot.pkmn_info_json["pokemon"].items():
+            c.execute('SELECT species_id, flavor_text '
+                      'FROM pokemon_species_flavor_text '
+                      'WHERE version_id = 26 AND language_id = 9 '
+                      'AND species_id = {}'.format(index))
+            flavor_data = c.fetchone()
+            if flavor_data:
+                flavor = flavor_data[1]
+            else:
+                flavor = None
+            new_dict['pokemon'][f'{index:03}'] = {
+                'name_en': pkmn,
+                'types'  : data['types']
+            }
+            if flavor:
+                new_dict['pokemon'][f'{index:03}']['flavor'] = flavor
+            index += 1
+            continue
+        with open(os.path.join(ctx.bot.data_dir, "raid_info_new.json"), mode='w') as fp:
+            json.dump(new_dict, fp, indent=4, sort_keys=True)
+        await ctx.send('complete')
+
