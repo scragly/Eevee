@@ -1,2 +1,3 @@
 from .manager import DataManager
-from .db import DatabaseInterface
+from .dbi import DatabaseInterface
+from .schema import Table
