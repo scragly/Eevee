@@ -33,14 +33,11 @@ class Eevee(commands.Bot):
         self.language = config.lang_bot
         self.pkmn_language = config.lang_pkmn
         self.preload_ext = config.preload_extensions
-        self.dbi = DatabaseInterface(hostname=config.db_host,
-                                     username=config.db_user,
-                                     password=config.db_pass,
-                                     database=config.db_name)
+        self.dbi = DatabaseInterface(**config.db_details)
         self.data = DataManager(self.dbi)
-        kwargs["command_prefix"] = self.dbi.prefix_manager
-        kwargs["owner_id"] = self.owner
-        kwargs["status"] = discord.Status.dnd
+        kwargs = dict(owner_id=self.owner,
+                      command_prefix=self.dbi.prefix_manager,
+                      status=discord.Status.dnd, **kwargs)
         super().__init__(**kwargs)
         self.loop.run_until_complete(self._db_connect())
 
@@ -147,12 +144,9 @@ class Eevee(commands.Bot):
     async def process_commands(self, message):
         if message.author.bot:
             return
-
         ctx = await self.get_context(message, cls=Context)
-
         if not ctx.command:
             return
-
         await self.invoke(ctx)
 
     def match(self, data_list, item):
@@ -212,15 +206,14 @@ class Eevee(commands.Bot):
     async def on_connect(self):
         if hasattr(self, 'launch_time'):
             print("Reconnected.")
-        else:
-            await self.change_presence(status=discord.Status.idle)
+        await self.change_presence(status=discord.Status.idle)
 
     async def on_ready(self):
         intro = "Eevee - Pokemon Go Bot for Discord"
         intro_deco = "{0}\n{1}\n{0}".format('='*len(intro), intro)
         if not hasattr(self, 'launch_time'):
             self.launch_time = datetime.utcnow()
-            await self.change_presence(status=discord.Status.online)
+        await self.change_presence(status=discord.Status.online)
         if not self.launcher:
             print(intro_deco)
         print("We're on!\n")
