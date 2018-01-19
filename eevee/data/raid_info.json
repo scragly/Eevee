@@ -153,7 +153,8 @@
 		"mewtwo"      : {
 			"level"   : 5,
 			"max_cp"  : 2275,
-			"max_cp_w": 2844
+			"max_cp_w": 2844,
+			"exraid"  : true
 		}
 	},
 	"raid_eggs": {
