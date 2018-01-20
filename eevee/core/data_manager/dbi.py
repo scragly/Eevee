@@ -1,7 +1,8 @@
 import asyncio
 import asyncpg
 from discord.ext.commands import when_mentioned_or
-
+from .schema import Table
+from . import types
 
 class DatabaseInterface:
     def __init__(self,
@@ -16,6 +17,7 @@ class DatabaseInterface:
         self.pool = None
         self.prefix_conn = None
         self.prefix_stmt = None
+        self.types = types
 
     async def start(self):
         self.pool = await asyncpg.create_pool(self.dsn)
@@ -42,8 +44,8 @@ class DatabaseInterface:
         """
         default_prefix = bot.default_prefix
         if message.guild:
-            guild_prefix = await self.prefix_stmt.fetchval(message.guild.id)
-            prefixes = guild_prefix if guild_prefix else default_prefix
+            g_prefix = await self.prefix_stmt.fetchval(message.guild.id)
+            prefixes = g_prefix if g_prefix else default_prefix
         else:
             prefixes = default_prefix
 
@@ -90,9 +92,14 @@ class DatabaseInterface:
         return rcrds[0] if rcrds else None
 
     async def get_value(self, table_name: str, col_name: str, **filters):
-        """Get first record of queried data from table"""
+        """Get first record value of queried data from table"""
         rcrd = await self.get_first(table_name, col_name, **filters)
         return rcrd[0] if rcrd else None
+
+    async def get_values(self, table_name: str, col_name: str, **filters):
+        """Get first record value of queried data from table"""
+        rcrds = await self.get(table_name, col_name, **filters)
+        return [r[0] for r in rcrds] if rcrds else None
 
     async def insert(self, table_name: str, columns: list, *values):
         """Add records to a table."""
@@ -114,19 +121,30 @@ class DatabaseInterface:
         return await self.execute_transaction(sql, *values)
 
     async def delete(self, table_name: str, **filters):
-        """Deletes a record from table"""
+        """Deletes records from table."""
         filter_list = []
         for i in range(len(filters)):
             filter_list.append(f"{[*filters.keys()][i]}=${i+1}")
         sql = f"DELETE FROM {table_name} WHERE {' AND '.join(filter_list)}"
         return await self.execute_transaction(sql, *filters.values())
 
-    async def create_table(cls, table_name, columns: list, primary: list):
+    async def create_table(self, name, columns: list, *, primaries=None):
         """Create table."""
-        sql = f"CREATE TABLE {name} ("
-        for col in columns:
-            collate = " COLLATE" if col.data_type is "text" else ""
-            null = " NOT NULL" if col.required else ""
-            sql += f"{col.name} {col.data_type}{collate}{null}, "
-        sql += f"CONSTRAINT {name}_pkey PRIMARY KEY ({', '.join(primary)}))"
-        return await dbi.execute_transaction(sql)
+        return await Table.create(self, name, columns, primaries=primaries)
+
+    async def delete_table(self, name):
+        """Delete table."""
+        return await Table.drop(self, name)
+
+    async def get_table_columns(self, table_name):
+        """Get column from table."""
+        return await self.get_values('information_schema.columns',
+                                     'column_name', TABLE_NAME=table_name)
+
+    async def get_table_primary(self, table_name):
+        """Get column from table."""
+        return await self.get_values('information_schema.key_column_usage',
+                                     'column_name', TABLE_NAME=table_name)
+
+    def get_table(self, table_name):
+        return Table(table_name, self)
