@@ -9,13 +9,17 @@ class GuildDM:
             guild = guild.id
         self.guild_id = int(guild)
 
-    async def setting(self, key, value=None):
+    async def settings(self, key=None, value=None):
         config_table = self.dbi.get_table('guild_config')
-        if value:
-            return await config_table.upsert(
-                self.guild_id, key, value)
+        if key:
+            if value:
+                return await config_table.upsert(
+                    (self.guild_id, key, value))
+            else:
+                return await self.dbi.settings_stmt.fetchval(
+                    self.guild_id, key)
         else:
-            return await config_table.get_value(key)
+            return await config_table.get(guild_id=self.guild_id)
 
     async def prefix(self, new_prefix: str = None):
         """Add, remove and change custom guild prefix.

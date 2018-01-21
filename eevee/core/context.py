@@ -3,10 +3,15 @@ from discord.ext import commands
 class Context(commands.Context):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.session = None
+        self.dbi = self.bot.dbi
+        self.data = self.bot.data
+        if self.guild:
+            self.guild_dm = self.bot.data.guild(self.guild.id)
+            self.setting = self.guild_dm.settings
 
-    async def ask_confirmation(message, *, timeout=30.0, delete_after=True,
-                               author_id=None, destination=None):
+    async def ask_confirmation(self, message, *, timeout=30.0,
+                               delete_after=True, author_id=None,
+                               destination=None):
         """An interactive reaction confirmation dialog.
 
         Parameters

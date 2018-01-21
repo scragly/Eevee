@@ -17,13 +17,19 @@ class DatabaseInterface:
         self.pool = None
         self.prefix_conn = None
         self.prefix_stmt = None
+        self.settings_conn = None
+        self.settings_stmt = None
         self.types = types
 
     async def start(self):
         self.pool = await asyncpg.create_pool(self.dsn)
         self.prefix_conn = await self.pool.acquire()
+        self.settings_conn = await self.pool.acquire()
         prefix_sql = 'SELECT prefix FROM prefix WHERE guild_id=$1;'
+        settings_sql = ('SELECT config_value FROM guild_config '
+                        'WHERE guild_id=$1 AND config_name=$2;')
         self.prefix_stmt = await self.prefix_conn.prepare(prefix_sql)
+        self.settings_stmt = await self.settings_conn.prepare(settings_sql)
 
     async def stop(self):
         if self.prefix_conn:
@@ -45,11 +51,11 @@ class DatabaseInterface:
         default_prefix = bot.default_prefix
         if message.guild:
             g_prefix = await self.prefix_stmt.fetchval(message.guild.id)
-            prefixes = g_prefix if g_prefix else default_prefix
+            prefix = g_prefix if g_prefix else default_prefix
         else:
-            prefixes = default_prefix
+            prefix = default_prefix
 
-        return when_mentioned_or(*prefixes)(bot, message)
+        return when_mentioned_or(prefix)(bot, message)
 
     async def execute_query(self, query, *query_args):
         result = []
