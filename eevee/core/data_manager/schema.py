@@ -1,26 +1,27 @@
-from .types import (SQLType, StringSQL, BooleanSQL, DatetimeSQL,
-                    IntegerSQL, DecimalSQL, IntervalSQL)
-from .errors import SchemaError, PostgresError
+from .errors import PostgresError, SchemaError
+from .types import (BooleanSQL, DatetimeSQL, DecimalSQL, IntegerSQL,
+                    IntervalSQL, SQLType, StringSQL)
 
 
 class Column:
-    __slots__ = ('name', 'data_type', 'primary_key', 'required', 'value',
-                 'default', 'unique')
+    __slots__ = ('name', 'data_type', 'primary_key', 'required',
+                 'default', 'unique', 'table')
 
-    def __init__(self, name, data_type, *, primary_key=False,
-                 required=False, value=None, default=None, unique=False):
+    def __init__(self, name, data_type=None, *, primary_key=False,
+                 required=False, default=None, unique=False, table=None):
         self.name = name
-        if not isinstance(data_type, SQLType):
-            raise TypeError('Data types must be SQLType.')
+        if data_type:
+            if not isinstance(data_type, SQLType):
+                raise TypeError('Data types must be SQLType.')
         self.data_type = data_type
         self.primary_key = primary_key
         self.required = required
-        self.value = value
         self.default = default
         self.unique = unique
         if sum(map(bool, [primary_key, default is not None, unique])) > 1:
             raise SchemaError('Set only one of either primary_key, default or '
                               'unique')
+        self.table = table
 
     def __str__(self):
         return self.name
@@ -38,7 +39,7 @@ class Column:
         sql.append(self.name)
         sql.append(self.data_type.to_sql())
         if self.default is not None:
-            if isinstance(self.default, str) and (self.data_type, String):
+            if isinstance(self.default, str) and isinstance(self.data_type, str):
                 default = f"'{self.default}'"
             elif isinstance(self.default, bool):
                 default = str(default).upper()
@@ -52,6 +53,17 @@ class Column:
         if self.required:
             sql.append('NOT NULL')
         return ' '.join(sql)
+
+    async def set(self, value):
+        data = {self.name:value}
+        return await self.table.upsert(data)
+
+    async def get(self, **filters):
+        return await self.table.get(columns=self.name, **filters)
+
+    async def get_first(self, **filters):
+        return await self.table.get_first(column=self.name, **filters)
+
 
 class IDColumn(Column):
     def __init__(self, name, **kwargs):
@@ -94,24 +106,36 @@ class Table:
     def __str__(self):
         return self.name
 
-    def _get_columns(self):
-        return self.dbi.get_table_columns(self, self.name)
+    def __getattr__(self, name, **filters):
+        return Column(name, table=self)
 
-    async def get(self, column='*', **filters):
-        """Get data from current table."""
-        return await self.dbi.get(self.name, str(column), **filters)
+    async def _get_columns(self):
+        return await self.dbi.get_table_columns(self, self.name)
 
-    async def get_first(self, column='*', **filters):
-        """Get first matching record from current table."""
-        return await self.dbi.get_first(self.name, str(column), **filters)
+    async def _get_primary(self):
+        return self.dbi.get_table_primary(self, self.name)
+
+    async def get(self, columns=None, **filters):
+        """Returns values from columns of filtered table."""
+        if not columns:
+            return await self.dbi.get(self.name, '*', **filters)
+        elif isinstance(columns, (list, set, tuple)):
+            if len(columns) > 1:
+                multi = True
+            columns = ', '.join(columns)
+        return await self.dbi.get(self.name, str(columns), **filters)
+
+    async def get_values(self, column='*', **filters):
+        """Returns list of values in a column from filtered table."""
+        return await self.dbi.get_values(self.name, str(column), **filters)
 
     async def get_value(self, column, **filters):
-        """Get matching record value from current table."""
+        """Returns a single value from a column from filtered table."""
         return await self.dbi.get_value(self.name, str(column), **filters)
 
-    async def get_values(self, column, **filters):
-        """Get matching record value from current table."""
-        return await self.dbi.get_values(self.name, str(column), **filters)
+    async def get_first(self, column='*', **filters):
+        """Returns first row from filtered table."""
+        return await self.dbi.get_first(self.name, str(column), **filters)
 
     async def insert(self, data):
         """Add record to current table."""
@@ -128,7 +152,7 @@ class Table:
     async def upsert(self, data):
         """Add record to current table."""
         if isinstance(data, dict):
-            return await self.dbi.insert(
+            return await self.dbi.upsert(
                 self, self.name, [*data.keys()], *data.values())
         elif isinstance(data, (set, list, tuple)):
             keys = await self.dbi.get_table_primary(self.name)
@@ -143,7 +167,7 @@ class Table:
         return await self.dbi.delete(self.name, **filters)
 
     @classmethod
-    def _test_create(cls, name, columns: list, *, primaries=None):
+    def test_create(cls, name, columns: list, *, primaries=None):
         """Generate SQL for creating the table."""
         sql = f"CREATE TABLE {name} ("
         sql += ', '.join(col.to_sql for col in columns)

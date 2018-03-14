@@ -1,4 +1,4 @@
 from asyncpg import PostgresError
 
-class SchemaError(Exception):
+class SchemaError(PostgresError):
     pass

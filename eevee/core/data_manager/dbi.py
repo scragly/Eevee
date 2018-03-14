@@ -11,7 +11,7 @@ class DatabaseInterface:
                  username='eevee',
                  database="eevee",
                  port=5432):
-        self.loop = asyncio.get_event_loop()
+        self.loop = None
         self.dsn = "postgres://{}:{}@{}:{}/{}".format(
             username, password, hostname, port, database)
         self.pool = None
@@ -21,8 +21,10 @@ class DatabaseInterface:
         self.settings_stmt = None
         self.types = types
 
-    async def start(self):
-        self.pool = await asyncpg.create_pool(self.dsn)
+    async def start(self, loop=None):
+        if loop:
+            self.loop = loop
+        self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
         self.prefix_conn = await self.pool.acquire()
         self.settings_conn = await self.pool.acquire()
         prefix_sql = 'SELECT prefix FROM prefix WHERE guild_id=$1;'
@@ -82,8 +84,8 @@ class DatabaseInterface:
                         result.append(rcrd)
             return result
 
-    async def get(self, table_name: str, col_name: str = '*', **filters):
-        """Get data from table."""
+    async def get(self, table_name: str, col_name: str, **filters):
+        """Get all records from filtered table."""
         sql = f"SELECT {col_name} FROM {table_name}"
         if filters:
             filter_list = []
@@ -102,7 +104,7 @@ class DatabaseInterface:
         rcrd = await self.get_first(table_name, col_name, **filters)
         return rcrd[0] if rcrd else None
 
-    async def get_values(self, table_name: str, col_name: str, **filters):
+    async def get_values(self, table_name: str, col_name: str = '*', **filters):
         """Get first record value of queried data from table"""
         rcrds = await self.get(table_name, col_name, **filters)
         return [r[0] for r in rcrds] if rcrds else None
@@ -152,5 +154,5 @@ class DatabaseInterface:
         return await self.get_values('information_schema.key_column_usage',
                                      'column_name', TABLE_NAME=table_name)
 
-    def get_table(self, table_name):
+    def table(self, table_name):
         return Table(table_name, self)
