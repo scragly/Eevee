@@ -1,7 +1,7 @@
 # Eevee v2 - In Developement
 A Discord helper bot for Pokemon Go communities.
 
-Eevee is based on Meowth, and is a Pokemon Go community manager and coordinator bot for Discord servers, upholding the ideal to respect the Terms of Service of both the game and the associated accounts.
+Eevee is a Pokemon Go community manager and coordinator bot for Discord servers, upholding the ideal to respect the Terms of Service of both the game and the associated accounts.
 
 It is written in Python 3.6.1 using the [discord.py v1.0.0a](https://github.com/Rapptz/discord.py/tree/rewrite) library.
 
