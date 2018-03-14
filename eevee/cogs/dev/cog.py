@@ -12,7 +12,9 @@ import discord
 from discord.ext import commands
 
 from eevee import checks, command
-from eevee.utils import converters, make_embed
+from eevee.utils import make_embed
+from eevee.utils.formatters import ilcode
+from eevee.utils.converters import BotCommand, Guild, Multi
 
 
 class Dev:
@@ -34,17 +36,24 @@ class Dev:
         """Shows you information about a number of characters.
         Only up to 25 characters at a time.
         """
-
         if len(characters) > 25:
             return await ctx.send(f'Too many characters ({len(characters)}/25)')
-
-        def to_string(c):
-            digit = f'{ord(c):x}'
-            name = unicodedata.name(c, 'Name not found.')
-            return (f'`\\U{digit:>08}`: {name} - {c} \N{EM DASH} '
-                    f'<http://www.fileformat.info/info/unicode/char/{digit}>')
-
-        await ctx.send('\n'.join(map(to_string, characters)))
+        embed = make_embed(msg_type='info')
+        charlist = []
+        rawlist = []
+        for char in characters:
+            digit = f'{ord(char):x}'
+            url = f"http://www.fileformat.info/info/unicode/char/{digit}"
+            name = f"[{unicodedata.name(char, '')}]({url})"
+            u_code = f'\\U{digit:>08}'
+            if len(f'{digit}') <= 4:
+                u_code = f'\\u{digit:>04}'
+            charlist.append(' '.join([ilcode(u_code.ljust(10)+':'), name, '-', char]))
+            rawlist.append(u_code)
+        embed.add_field(name='Character Info', value='\n'.join(charlist))
+        if len(characters) > 1:
+            embed.add_field(name='Raw', value=ilcode(''.join(rawlist)), inline=False)
+        await ctx.send(embed=embed)
 
     def cleanup_code(self, content):
         """Automatically removes code blocks from the code."""
@@ -125,7 +134,7 @@ class Dev:
 
     @command(category="Developer", aliases=['src'])
     @commands.cooldown(rate=2, per=5, type=commands.BucketType.user)
-    async def source(self, ctx, *, command: converters.BotCommand):
+    async def source(self, ctx, *, command: BotCommand):
         """Displays the source code for a particular command.
         There is a per-user, 2 times per 5 seconds cooldown in order to prevent spam.
         """
@@ -141,7 +150,7 @@ class Dev:
         os.system('cls')
 
     @command(category="Developer")
-    async def guild(self, ctx, *, guild: converters.Guild):
+    async def guild(self, ctx, *, guild: Guild):
         if guild:
             if guild.unavailable:
                 embed = make_embed(
@@ -196,3 +205,69 @@ class Dev:
         else:
             embed = make_embed(msg_type='error', title='Guild not found')
         await ctx.send(embed=embed)
+
+    @command(category="Developer", name='say')
+    async def _say(self, ctx, *, msg):
+        """Eevee will repeat the given message."""
+        await ctx.send(msg)
+
+    @command(category="Developer")
+    async def emoji(self, ctx, emoji_id: int):
+        """Eevee will post the matching emoji if it shares it's server."""
+        await ctx.send(f'<:emojitest:{emoji_id}>')
+
+    @command(category="Developer")
+    async def check_perms(
+        self, ctx, member_or_role: Multi(discord.Member, discord.Role),
+        guild_or_channel: Multi(
+            discord.Guild, discord.TextChannel, discord.VoiceChannel)=None):
+        """Show permissions of a member or role for the guild and channel."""
+        full_scope = True
+        if guild_or_channel:
+            if isinstance(guild_or_channel, discord.Guild):
+                guild_perms = guild.me.guild_permissions
+        else:
+            guild_perms = ctx.guild.me.guild_permissions
+            chan_perms = ctx.channel.permissions_for(ctx.guild.me)
+
+        req_perms = ctx.bot.req_perms
+        g_perms_compare = guild_perms >= req_perms
+        c_perms_compare = chan_perms >= req_perms
+        core_dir = ctx.bot.core_dir
+        data_dir = os.path.join(core_dir, '..', 'data')
+        data_file = 'permissions.json'
+        msg = f"**Guild:**\n{ctx.guild}\nID {ctx.guild.id}\n"
+        msg += f"**Channel:**\n{ctx.channel}\nID {ctx.channel.id}\n"
+        msg += "```py\nGuild     | Channel\n"
+        msg += "----------|----------\n"
+        msg += "{} | {}\n".format(guild_perms.value, chan_perms.value)
+        msg += "{0:9} | {1}```".format(str(g_perms_compare), str(c_perms_compare))
+        y_emj = ":white_small_square:"
+        n_emj = ":black_small_square:"
+
+        with open(os.path.join(data_dir, data_file), "r") as perm_json:
+            perm_dict = json.load(perm_json)
+
+        for perm, bitshift in perm_dict.items():
+            if bool((req_perms.value >> bitshift) & 1):
+                guild_bool = bool((guild_perms.value >> bitshift) & 1)
+                channel_bool = bool((chan_perms.value >> bitshift) & 1)
+                guild_e = y_emj if guild_bool else n_emj
+                channel_e = y_emj if channel_bool else n_emj
+                msg += f"{guild_e} {channel_e}  {perm}\n"
+
+        try:
+            if chan_perms.embed_links:
+                embed = make_embed(
+                    msg_type='info',
+                    title='Bot Permissions',
+                    content=msg)
+                await ctx.send(embed=embed)
+            else:
+                await ctx.send(msg)
+        except discord.errors.Forbidden:
+            embed = make_embed(
+                msg_type='info',
+                title='Guild Permissions',
+                content=msg)
+            await ctx.author.send(embed=embed)
