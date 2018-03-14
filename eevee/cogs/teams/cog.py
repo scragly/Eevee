@@ -116,7 +116,7 @@ class Teams:
         try:
             await member.add_roles(team_role)
             team_emoji = self.get_team_emoji(team_role)
-            emoji_id = re.search("<:\w+:([\d]+)>", team_emoji).group(1)
+            emoji_id = re.search(r"<:\w+:([\d]+)>", team_emoji).group(1)
             emoji = discord.utils.get(guild.emojis, id=int(emoji_id))
             embed = make_embed(
                 title=f"Welcome to {team_role.name.capitalize()}, "
