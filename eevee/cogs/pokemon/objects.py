@@ -1,21 +1,35 @@
 from discord.ext import commands
 
-from eevee.utils import fuzzymatch
+from eevee import errors
+from eevee.utils import fuzzymatch, url_color
+
 
 class Pokemon():
     """Represents a Pokemon"""
 
-    __slots__ = ('name', 'id', 'types', 'bot', 'guild')
+    __slots__ = ('name', 'id', 'types', 'bot', 'guild', 'pkmn_list')
 
     def __init__(self, bot, pkmn, guild=None):
         self.bot = bot
         self.guild = guild
         self.name = pkmn
-        self.id = list(bot.pkmn_info.keys()).index(pkmn)+1
+        self.pkmn_list = list(bot.pkmn_info.keys())
+        if pkmn not in self.pkmn_list:
+            raise errors.PokemonNotFound(pkmn)
+        self.id = self.pkmn_list.index(pkmn)+1
         self.types = self.get_type(self.name)
 
     def __str__(self):
         return self.name
+
+    @property
+    def img_url(self):
+        pkmn_no = str(self.id).zfill(3)
+        return ('https://raw.githubusercontent.com/FoglyOgly/'
+                f'Meowth/master/images/pkmn/{pkmn_no}_.png')
+
+    async def colour(self):
+        return await url_color(self.img_url)
 
     @property
     def is_raid(self):
@@ -40,8 +54,15 @@ class Pokemon():
         return self.bot.raid_pokemon[self.name][key] if self.is_raid else None
 
     def role(self, guild=None):
-        guild = guild if guild else self.guild
+        if not guild:
+            guild = self.guild
+        if not guild:
+            return None
         return self.bot.get(guild.roles, name=self.name)
+
+    def set_guild(self, guild):
+        self.guild = guild
+        return
 
     @property
     def weak_against(self):

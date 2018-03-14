@@ -2,6 +2,9 @@ import asyncio
 import json
 import os
 import sqlite3
+from functools import partial
+
+import discord
 
 from eevee import group
 from eevee.utils import make_embed, url_color
@@ -11,6 +14,7 @@ from eevee.utils.formatters import code
 from .objects import Pokemon
 
 def init_pokedata(bot):
+    bot.pokemon = partial(Pokemon, bot)
     with open(os.path.join(bot.data_dir, "raid_info.json")) as fp:
         bot.raid_info_json = json.load(fp)
         bot.raid_pokemon = bot.raid_info_json["raid_pkmn"]
@@ -36,13 +40,13 @@ class Pokedex:
     def get_type_emoji(self, type):
         return self.type_emoji[type.lower()]
 
-    def get_flavor(self, id):
+    def get_flavor(self, pkmn_id):
         conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
         c = conn.cursor()
         c.execute('SELECT species_id, flavor_text '
                   'FROM pokemon_species_flavor_text '
                   'WHERE version_id = 26 AND language_id = 9 '
-                  'AND species_id = {}'.format(id))
+                  'AND species_id = {}'.format(pkmn_id))
         return c.fetchone()[1]
 
     def pd_raid_info(self, pokemon):
@@ -84,7 +88,6 @@ class Pokedex:
                     f'Meowth/master/images/pkmn/{pkmn_no}_.png')
         pkmn_colour = await url_color(pkmn_url)
         embed = make_embed(
-            icon='https://cdn.discordapp.com/emojis/351758295142498325.png',
             image=pkmn_url,
             msg_colour=pkmn_colour)
 
@@ -101,15 +104,12 @@ class Pokedex:
                 description = self.pd_raid_info(pokemon)
             else:
                 description = "This Pokemon does not currently appear in raids."
-                
+
         else:
-            header = f'{types_str}\n#{pkmn_no} - {pokemon.name.capitalize()}'
+            header = f'{types_str} #{pkmn_no} - {pokemon.name.capitalize()}'
             description = code(self.get_flavor(pokemon.id).replace('\n', ' '))
 
-        embed.add_field(
-            name=header,
-            value=description,
-            inline=False)
+        embed.add_field(name=header, value=description, inline=False)
 
         if only_type or only_raid:
             return embed
@@ -146,18 +146,26 @@ class Pokedex:
         try:
             reaction, user = await ctx.bot.wait_for('reaction_add', timeout=30, check=check)
         except asyncio.TimeoutError:
-            await dym_msg.clear_reactions()
+            try:
+                await dym_msg.clear_reactions()
+            except discord.Forbidden:
+                pass
             return
 
-        await dym_msg.clear_reactions()
+        try:
+            await dym_msg.clear_reactions()
+        except discord.Forbidden:
+            pass
         if reaction.emoji == '\N{WHITE HEAVY CHECK MARK}':
             ctx.message.content = ctx.message.content.replace(
                 original, suggested)
             await dym_msg.delete()
             await ctx.bot.process_commands(ctx.message)
+        elif reaction.emoji == '\N{NEGATIVE SQUARED CROSS MARK}':
+            await dym_msg.delete()
 
     @group(category="Pokedex", aliases=["pd"], invoke_without_command=True)
-    async def pokedex(self, ctx, *, pokemon: Pokemon = "Eevee"):
+    async def pokedex(self, ctx, *, pokemon: Pokemon):
         """Return Pokemon Info"""
         if isinstance(pokemon, Pokemon):
             embed = await self.pd_pokemon(pokemon)
@@ -198,7 +206,7 @@ class Pokedex:
         conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
         c = conn.cursor()
         index = 1
-        new_dict = {'type_chart':ctx.bot.type_chart, 'pokemon':{}}
+        
         for pkmn, data in ctx.bot.pkmn_info_json["pokemon"].items():
             c.execute('SELECT species_id, flavor_text '
                       'FROM pokemon_species_flavor_text '
