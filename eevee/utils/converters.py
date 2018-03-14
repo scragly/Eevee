@@ -4,10 +4,7 @@ class BotCommand(commands.Converter):
     async def convert(self, ctx, arg):
         cmd = ctx.bot.get_command(arg)
         if cmd is None:
-            names = map(str, _unique(ctx.bot.walk_commands()))
-            closest = difflib.get_close_matches(arg, names, cutoff=0.5)
-            joined = 'Did you mean:\n' + '\n'.join(closest) if closest else ''
-            raise commands.BadArgument(f"Command {arg} not found. {joined}")
+            raise commands.BadArgument(f"Command not found.")
         return cmd
 
 class Multi(commands.Converter):
@@ -23,7 +20,7 @@ class Multi(commands.Converter):
         type_names = ', '.join([t.__name__ for t in self.types])
         raise commands.BadArgument(
             f"{arg} was not able to convert to the following types: "
-            "{type_names}")
+            f"{type_names}")
 
 class Guild(commands.Converter):
     async def convert(self, ctx, arg):

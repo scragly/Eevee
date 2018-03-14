@@ -125,4 +125,13 @@ def pycode(msg: str):
 
 def ilcode(msg: str):
     """Format to inline markdown code"""
-    return f'`py\n{msg}`'
+    return f'`{msg}`'
+
+def convert_to_bool(argument):
+    lowered = argument.lower()
+    if lowered in ('yes', 'y', 'true', 't', '1', 'enable', 'on'):
+        return True
+    elif lowered in ('no', 'n', 'false', 'f', '0', 'disable', 'off'):
+        return False
+    else:
+        return None
