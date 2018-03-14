@@ -51,3 +51,10 @@ def is_prefix(prefixes: list):
         prefix = ctx.prefix
         return prefix in prefixes
     return commands.check(check)
+
+async def check_cog_enabled(ctx, default=True):
+    enabled = await ctx.cog_enabled()
+    return enabled if enabled is not None else default
+
+def cog_enabled():
+    return commands.check(check_cog_enabled)

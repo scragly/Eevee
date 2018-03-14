@@ -1,4 +1,10 @@
+import asyncio
+
+import discord
+from discord.abc import Messageable
 from discord.ext import commands
+
+from eevee.utils.formatters import convert_to_bool, make_embed
 
 class Context(commands.Context):
     def __init__(self, **kwargs):
@@ -9,9 +15,45 @@ class Context(commands.Context):
             self.guild_dm = self.bot.data.guild(self.guild.id)
             self.setting = self.guild_dm.settings
 
-    async def ask_confirmation(self, message, *, timeout=30.0,
-                               delete_after=True, author_id=None,
-                               destination=None):
+    @property
+    def cog_name(self):
+        return self.command.instance.__class__.__name__
+
+    async def cog_enabled(self, value: bool = None, *, clear=False):
+        if clear:
+            return await self.setting(self.cog_name+'Enabled', delete=True)
+        elif value is not None:
+            return await self.setting(self.cog_name+'Enabled', value)
+        else:
+            value = await self.setting(self.cog_name+'Enabled')
+            if value is not None:
+                value = convert_to_bool(value)
+            return value
+
+    async def embed(self, title, description=None, plain_msg='', *,
+                    msg_type=None, title_url=None, colour=None,
+                    icon=None, thumbnail='', image='', fields: dict = None,
+                    footer=None, footer_icon=None, send=True):
+        embed = make_embed(title=title, content=description, msg_type=msg_type,
+                           title_url=title_url, msg_colour=colour, icon=icon,
+                           thumbnail=thumbnail, image=image, guild=self.guild)
+        if fields:
+            for key, value in fields.items():
+                embed.add_field(name=key, value=value, inline=False)
+        if footer:
+            footer = {'text':footer}
+            if footer_icon:
+                footer['icon_url'] = footer_icon
+            embed.set_footer(**footer)
+
+        if not send:
+            return embed
+        await self.send(plain_msg, embed=embed)
+
+    async def ask(self, message, *, timeout: float = 30.0,
+                  autodelete: bool = True, options: list = None,
+                  author_id: int = None, destination: Messageable = None,
+                  react_dict: dict = None):
         """An interactive reaction confirmation dialog.
 
         Parameters
@@ -19,47 +61,107 @@ class Context(commands.Context):
         message: Union[str, discord.Embed]
             The message to show along with the prompt.
         timeout: float
-            How long to wait before returning.
-        delete_after: bool
+            How long to wait before returning. Default is 30.
+        autodelete: bool
             Whether to delete the confirmation message after we're done.
-        reacquire: bool
-            Whether to release the database connection and then acquire it
-            again when we're done.
+            Default is True.
+        options: Optional[list]
+            What react options are valid, limited to react_dict keys.
         author_id: Optional[int]
             The member who should respond to the prompt. Defaults to the author of the
             Context's message.
         destination: Optional[discord.abc.Messageable]
-            Where the prompt should be sent. Defaults to the channel of the
-            Context's message.
+            Where the prompt should be sent. Defaults to invoked channel.
+        react_dict: Optional[dict]
+            Custom react dict. Overrides existing one.
 
         Returns
         --------
-        Optional[bool]
-            ``True`` if explicit confirm,
-            ``False`` if explicit deny,
-            ``None`` if deny due to timeout
-        """
+        Optional[Union[bool, str, int]]
+            ``1-5`` if selected numbered option,
+            ``A-E`` if selected lettered option,
+            ``True`` if confirm,
+            ``False`` if deny,
+            ``None`` if timeout
 
-        # We can also wait for a message confirmation as well. This is faster, but
-        # it's risky if there are two prompts going at the same time.
-        # TODO: Possibly support messages again?
+        If a custom react_dict is provide, it overrides default.
+        """
+        custom_reacts = bool(react_dict)
+        if not custom_reacts:
+            cek = '\u20e3'
+            react_dict = {
+                "1" : {
+                    "emoji":"1"+cek,
+                    "value":1
+                },
+                "2" : {
+                    "emoji":"2"+cek,
+                    "value":2
+                },
+                "3" : {
+                    "emoji":"3"+cek,
+                    "value":3
+                },
+                "4" : {
+                    "emoji":"4"+cek,
+                    "value":4
+                },
+                "5" : {
+                    "emoji":"5"+cek,
+                    "value":5
+                },
+                "a" : {
+                    "emoji":"\U0001f1e6",
+                    "value":"a"
+                },
+                "b" : {
+                    "emoji":"\U0001f1e7",
+                    "value":"b"
+                },
+                "c" : {
+                    "emoji":"\U0001f1e8",
+                    "value":"c"
+                },
+                "d" : {
+                    "emoji":"\U0001f1e9",
+                    "value":"d"
+                },
+                "e" : {
+                    "emoji":"\U0001f1ea",
+                    "value":"e"
+                },
+                "true" : {
+                    "emoji":"\u2705",
+                    "value":True
+                },
+                "false" : {
+                    "emoji":"\u274e",
+                    "value":False
+                },
+                "cancel" : {
+                    "emoji":"\U0001f6ab",
+                    "value":None
+                },
+            }
 
         destination = destination or self.channel
-        with contextlib.suppress(AttributeError):
-            if not destination.permissions_for(self.me).add_reactions:
-                raise RuntimeError('Bot does not have Add Reactions permission.')
 
-        config = self.bot.emoji_config
-        confirm_emoji, deny_emoji = emojis = [config.confirm, config.deny]
-        is_valid_emoji = frozenset(map(str, emojis)).__contains__
+        emoji_list = []
+        emoji_lookup = {}
+        for key, item in react_dict.items():
+            if not options and not custom_reacts:
+                options = ['true', 'false']
+            if options:
+                if key not in options:
+                    continue
+            emoji_lookup[item['emoji']] = item['value']
+            emoji_list.append(item['emoji'])
 
-        instructions = f'React with {confirm_emoji} to confirm or {deny_emoji} to deny\n'
+        is_valid_emoji = frozenset(emoji_list).__contains__
 
         if isinstance(message, discord.Embed):
-            message.add_field(name="Instructions", value=instructions, inline=False)
             msg = await destination.send(embed=message)
         else:
-            message = f'{message}\n\n{instructions}'
             msg = await destination.send(message)
 
         author_id = author_id or self.author.id
@@ -67,41 +169,20 @@ class Context(commands.Context):
         def check(emoji, message_id, channel_id, user_id):
             if message_id != msg.id or user_id != author_id:
                 return False
+            return is_valid_emoji(str(emoji))
 
-            result = is_valid_emoji(str(emoji))
-            print(emojis)
-            print(result, 'emoji:', emoji)
-            return result
-
-        for em in emojis:
-            # Standard unicode emojis are wrapped in _ProxyEmoji in core/bot.py
-            # because we need a url property. This is an issue because
-            # message.add_reaction will just happily pass the _ProxyEmoji raw,
-            # causing a 400 Bad Request due to Discord not recognizing the object.
-            #
-            # This is the cleanest way to do it withour resorting to monkey-
-            # patching the discord.Message.add_reaction method. Since we're using
-            # the emojis defined in emojis.py, we only need to worry about two types:
-            # _ProxyEmoji and discord.Emoji, so we can just do a simple isinstance
-            # check for discord.Emoji so we don't need to import _ProxyEmoji.
-            #
-            # It also doesn't matter if the confirm/deny emojis are None. That's the
-            # user's fault.
-            if not isinstance(em, discord.Emoji):
-                em = str(em)
-
-            await msg.add_reaction(em)
-
-        if reacquire:
-            await self.release()
+        for emoji in emoji_list:
+            # str cast in case of _ProxyEmoji
+            if not isinstance(emoji, discord.Emoji):
+                emoji = str(emoji)
+            await msg.add_reaction(emoji)
 
         try:
             emoji, *_, = await self.bot.wait_for('raw_reaction_add', check=check, timeout=timeout)
-            # Extra str cast for the case of _ProxyEmojis
-            return str(emoji) == str(confirm_emoji)
+            # str cast in case of _ProxyEmojis
+            return emoji_lookup[str(emoji)]
+        except asyncio.TimeoutError:
+            return None
         finally:
-            if reacquire:
-                await self.acquire()
-
-            if delete_after:
+            if autodelete:
                 await msg.delete()

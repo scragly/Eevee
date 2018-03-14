@@ -4,6 +4,7 @@ import platform
 from collections import Counter
 from datetime import datetime
 
+import aiohttp
 import pkg_resources
 from dateutil.relativedelta import relativedelta
 
@@ -17,13 +18,16 @@ from eevee.core.data_manager import DatabaseInterface, DataManager
 from eevee.utils import ExitCodes, pagination, fuzzymatch
 
 
-class Eevee(commands.Bot):
+class Eevee(commands.AutoShardedBot):
 
     def __init__(self, **kwargs):
         self.default_prefix = config.bot_prefix
         self.owner = config.bot_master
-        self._shutdown_mode = ExitCodes.CRITICAL
+        self.shutdown_mode = ExitCodes.CRITICAL
+        self.launcher = kwargs.pop('launcher')
+        self.debug = kwargs.pop('debug')
         self.counter = Counter()
+        self.launch_time = None
         self.core_dir = os.path.dirname(os.path.realpath(__file__))
         self.data_dir = os.path.join(self.core_dir, "..", "data")
         self.config = config
@@ -39,10 +43,11 @@ class Eevee(commands.Bot):
                       command_prefix=self.dbi.prefix_manager,
                       status=discord.Status.dnd, **kwargs)
         super().__init__(**kwargs)
+        self.session = aiohttp.ClientSession(loop=self.loop)
         self.loop.run_until_complete(self._db_connect())
 
     async def _db_connect(self):
-        await self.dbi.start()
+        await self.dbi.start(loop=self.loop)
 
     async def send_cmd_help(self, ctx, **kwargs):
         try:
@@ -55,8 +60,8 @@ class Eevee(commands.Bot):
                 p = await pagination.Pagination.from_command(
                     ctx, ctx.command, **kwargs)
             await p.paginate()
-        except Exception as e:
-            await ctx.send(e)
+        except discord.DiscordException as exc:
+            await ctx.send(exc)
 
     async def shutdown(self, *, restart=False):
         """Shutdown the bot.
@@ -65,9 +70,9 @@ class Eevee(commands.Bot):
         on if the intention was to restart or close.
         """
         if not restart:
-            self._shutdown_mode = ExitCodes.SHUTDOWN
+            self.shutdown_mode = ExitCodes.SHUTDOWN
         else:
-            self._shutdown_mode = ExitCodes.RESTART
+            self.shutdown_mode = ExitCodes.RESTART
         await self.dbi.stop()
         await self.logout()
 
@@ -208,12 +213,19 @@ class Eevee(commands.Bot):
             print("Reconnected.")
         await self.change_presence(status=discord.Status.idle)
 
+    # async def on_message_edit(self, before: discord.Message, after: discord.Message):
+    #     if before.content != after.content:
+    #         await self.process_commands(after)
+
+    async def on_shard_ready(self, shard_id):
+        await self.change_presence(status=discord.Status.online, shard_id=shard_id)
+        print(f'Shard {shard_id} is ready.')
+
     async def on_ready(self):
         intro = "Eevee - Pokemon Go Bot for Discord"
         intro_deco = "{0}\n{1}\n{0}".format('='*len(intro), intro)
-        if not hasattr(self, 'launch_time'):
+        if not self.launch_time:
             self.launch_time = datetime.utcnow()
-        await self.change_presence(status=discord.Status.online)
         if not self.launcher:
             print(intro_deco)
         print("We're on!\n")

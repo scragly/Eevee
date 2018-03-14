@@ -8,9 +8,9 @@ import psutil
 import discord
 from discord.ext import commands
 
-from eevee import command, group, checks
+from eevee import command, group, checks, errors
 from eevee.utils.pagination import Pagination
-from eevee.utils.formatters import url_color, make_embed
+from eevee.utils.formatters import url_color, make_embed, convert_to_bool
 
 class Core:
     """General bot functions."""
@@ -484,9 +484,12 @@ class Core:
 
     @command(name="ping", category='Bot Info')
     async def _ping(self, ctx):
-        msg = ("{0:.2f} ms").format(ctx.bot.ws.latency * 1000)
-        embed = make_embed(msg_type='info', title=f'Bot Latency: {msg}')
-        await ctx.send(embed=embed)
+        msg = ''
+        for shard, latency in ctx.bot.latencies:
+            here = '  🡸' if shard == ctx.guild.shard_id else ''
+            msg += ("**Shard {0}:** {1:.2f} ms{2}"
+                    "\n").format(shard, latency * 1000, here)
+        await ctx.embed('Latency', msg, msg_type='info')
 
     @command(category='Owner')
     @checks.is_admin()
@@ -506,7 +509,7 @@ class Core:
         embed = make_embed(
             msg_type='success',
             title='Deleted {} message{}'.format(
-            len(deleted), "s" if len(deleted) > 1 else ""))
+                len(deleted), "s" if len(deleted) > 1 else ""))
         result_msg = await ctx.send(embed=embed)
         await asyncio.sleep(3)
         await result_msg.delete()
@@ -584,6 +587,56 @@ class Core:
             await p.paginate()
         except Exception as e:
             await ctx.send(e)
+
+    @group(category='Server Config', name='enable', aliases=['disable'],
+           invoke_without_command=True)
+    @commands.guild_only()
+    @checks.is_admin()
+    async def _enable(self, ctx, cog):
+        """Enable/Disable bot features within your guild."""
+        if ctx.invoked_with == 'disable':
+            value = False
+        else:
+            value = True
+        try:
+            if cog in {*ctx.bot.cogs}:
+                await ctx.setting(cog+'Enabled', value)
+                action = 'enabled' if value else 'disabled'
+                embed = make_embed(msg_type='success', title=f'{cog} {action}.')
+                await ctx.send(embed=embed)
+                return
+            else:
+                embed = make_embed(msg_type='error', title=f'{cog} not found.')
+                await ctx.send(embed=embed)
+                return
+        except errors.PostgresError:
+            msg = "{}: {}".format(type(e).__name__, e)
+            embed = make_embed(
+                msg_type='error', title=f'Error enabling {cog}', content=msg)
+            await ctx.send(embed=embed)
+            raise
+
+    @_enable.command(name='list')
+    @checks.is_admin()
+    async def _list(self, ctx):
+        """List all loaded cogs."""
+        cog_list = []
+        for cog in ctx.bot.cogs:
+            value = await ctx.setting(f'{cog}Enabled')
+            if value is not None:
+                value = convert_to_bool(value)
+            if value is None:
+                status = ":black_small_square:"
+            elif value is True:
+                status = ":white_small_square:"
+            elif value is False:
+                status = ":small_orange_diamond:"
+            cog_list.append(f"{status} {cog}")
+        cog_msg = '\n'.join(cog_list)
+        embed = make_embed(
+            msg_type='info', title='Available Cogs', content=cog_msg)
+        await ctx.send(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(Core(bot))

@@ -1,9 +1,8 @@
 import os
 import pkgutil
 
-from eevee.core import checks
+from eevee.core import checks, errors
 from eevee import utils, command, group
-
 
 class CogManager:
     """Commands to add, remove and change cogs for Eevee."""
@@ -20,9 +19,9 @@ class CogManager:
         if ctx.invoked_subcommand is None:
             await ctx.bot.send_cmd_help(ctx)
 
-    @cog.command(name="list")
-    async def _list(self, ctx):
-        """List all available cogs and their loaded status."""
+    @cog.command(aliases=["ext"])
+    async def extensions(self, ctx):
+        """List all available cog extensions and their loaded status."""
         cog_folder = "cogs"
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", cog_folder)
         cog_files = [name for _, name, _ in pkgutil.iter_modules([cogs_dir])]
@@ -48,9 +47,18 @@ class CogManager:
                                  content=count_msg+msg)
         await ctx.send(embed=embed)
 
+    @cog.command(name='list')
+    async def _list(self, ctx):
+        """List all loaded cogs."""
+        cog_msg = '\n'.join(str(c) for c in ctx.bot.cogs)
+        embed = utils.make_embed(msg_type='info',
+                                 title='Loaded Cogs',
+                                 content=cog_msg)
+        await ctx.send(embed=embed)
+
     @cog.command()
     async def unload(self, ctx, cog):
-        """Unload a cog."""
+        """Unload an extension."""
         bot = ctx.bot
         ext_name = ("eevee.cogs."+cog)
         if ext_name in bot.extensions:
@@ -65,7 +73,7 @@ class CogManager:
 
     @cog.group(invoke_without_command=True)
     async def load(self, ctx, cog):
-        """Load or reload a cog."""
+        """Load or reload an extension."""
         cog_folder = "cogs"
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", cog_folder)
         cog_files = [name for _, name, _ in pkgutil.iter_modules([cogs_dir])]
@@ -108,6 +116,12 @@ class CogManager:
     async def _core(self, ctx):
         """Reload Core Commands."""
         embed = self.load_extension('Core Commands', 'eevee.core.commands')
+        await ctx.send(embed=embed)
+
+    @load.command(name="cm")
+    async def _cm(self, ctx):
+        """Reload Cog Manager."""
+        embed = self.load_extension('Cog Manager', 'eevee.core.cog_manager')
         await ctx.send(embed=embed)
 
     def load_extension(self, name, path):

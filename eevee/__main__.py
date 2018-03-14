@@ -17,9 +17,7 @@ if discord.version_info.major < 1:
 
 def run_eevee(debug=False, launcher=None):
     description = "Eevee v2 - Alpha"
-    eevee = bot.Eevee(description=description)
-    eevee.launcher = launcher
-    eevee.debug = debug
+    eevee = bot.Eevee(description=description, launcher=launcher, debug=debug)
     eevee.logger = logger.init_logger(debug_flag=debug)
     eevee.load_extension('eevee.core.error_handling')
     eevee.load_extension('eevee.core.commands')
@@ -36,16 +34,16 @@ def run_eevee(debug=False, launcher=None):
     except discord.LoginFailure:
         eevee.logger.critical("Invalid token")
         loop.run_until_complete(eevee.logout())
-        eevee._shutdown_mode = ExitCodes.SHUTDOWN
+        eevee.shutdown_mode = ExitCodes.SHUTDOWN
     except KeyboardInterrupt:
         eevee.logger.info("Keyboard interrupt detected. Quitting...")
         loop.run_until_complete(eevee.logout())
-        eevee._shutdown_mode = ExitCodes.SHUTDOWN
-    except Exception as e:
-        eevee.logger.critical("Fatal exception", exc_info=e)
+        eevee.shutdown_mode = ExitCodes.SHUTDOWN
+    except Exception as exc:
+        eevee.logger.critical("Fatal exception", exc_info=exc)
         loop.run_until_complete(eevee.logout())
     finally:
-        code = eevee._shutdown_mode
+        code = eevee.shutdown_mode
         sys.exit(code.value)
 
 def parse_cli_args():
