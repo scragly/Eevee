@@ -7,9 +7,7 @@ from eevee import errors
 class ErrorHandler:
 
     async def on_command_error(self, ctx, error):
-        if isinstance(error, errors.PokemonNotFound):
-            await ctx.send(error.pokemon + ' not found.')
-        elif isinstance(error, commands.MissingRequiredArgument):
+        if isinstance(error, commands.MissingRequiredArgument):
             await ctx.bot.send_cmd_help(
                 ctx, title='Missing Arguments', msg_type='error')
         elif isinstance(error, commands.BadArgument):
