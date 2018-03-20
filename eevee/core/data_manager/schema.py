@@ -173,10 +173,10 @@ class Table:
         sql += ', '.join(col.to_sql for col in columns)
         if primaries:
             if isinstance(primaries, str):
-                sql += f"CONSTRAINT {name}_pkey PRIMARY KEY (primaries)"
+                sql += f", CONSTRAINT {name}_pkey PRIMARY KEY ({primaries})"
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (f"CONSTRAINT {name}_pkey "
-                        f"PRIMARY KEY ({', '.join(primaries)}))")
+                sql += (f", CONSTRAINT {name}_pkey"
+                        f" PRIMARY KEY ({', '.join(primaries)}))")
         sql += ")"
         return sql
 
@@ -187,10 +187,10 @@ class Table:
         sql += ', '.join(col.to_sql for col in columns)
         if primaries:
             if isinstance(primaries, str):
-                sql += f"CONSTRAINT {name}_pkey PRIMARY KEY (primaries)"
+                sql += f", CONSTRAINT {name}_pkey PRIMARY KEY ({primaries})"
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (f"CONSTRAINT {name}_pkey "
-                        f"PRIMARY KEY ({', '.join(primaries)}))")
+                sql += (f", CONSTRAINT {name}_pkey"
+                        f" PRIMARY KEY ({', '.join(primaries)}))")
         sql += ")"
         try:
             await dbi.execute_transaction(sql)
@@ -198,6 +198,16 @@ class Table:
             raise
         else:
             return cls(name, dbi)
+
+    async def exists(self):
+        """Create table and return the object representing it."""
+        sql = f"SELECT to_regclass('{self.name}')"
+        try:
+            result = await self.dbi.execute_query(sql)
+        except PostgresError:
+            raise
+        else:
+            return bool(list(result[0])[0])
 
     @classmethod
     async def drop(cls, dbi, name):

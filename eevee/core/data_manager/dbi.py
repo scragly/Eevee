@@ -1,10 +1,18 @@
-import asyncio
+import logging
+
 import asyncpg
+
 from discord.ext.commands import when_mentioned_or
+
 from .schema import Table
+from .tables import CORE_TABLE_SQL
 from . import types
 
+module_logger = logging.getLogger('eevee.core.dbi')
+
 class DatabaseInterface:
+    """Get, Create and Edit data in the connected database."""
+
     def __init__(self,
                  password,
                  hostname='localhost',
@@ -20,6 +28,7 @@ class DatabaseInterface:
         self.settings_conn = None
         self.settings_stmt = None
         self.types = types
+        self.log = logging.getLogger('eevee.core.dbi.DatabaseInterface')
 
     async def start(self, loop=None):
         if loop:
@@ -32,6 +41,15 @@ class DatabaseInterface:
                         'WHERE guild_id=$1 AND config_name=$2;')
         self.prefix_stmt = await self.prefix_conn.prepare(prefix_sql)
         self.settings_stmt = await self.settings_conn.prepare(settings_sql)
+        if await self.first_start():
+            self.log.warning('Core tables not found - Initialising')
+            await self.execute_transaction(self, CORE_TABLE_SQL)
+            self.log.warning('Core tables created')
+
+    async def first_start(self):
+        prefix_exists = await self.table('prefix').exists()
+        guild_config_exists = await self.table('guild_config').exists()
+        return not all((prefix_exists, guild_config_exists))
 
     async def stop(self):
         if self.prefix_conn:
