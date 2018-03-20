@@ -72,38 +72,39 @@ class CogManager:
             await ctx.send(embed=embed)
 
     @cog.group(invoke_without_command=True)
-    async def load(self, ctx, cog):
+    async def load(self, ctx, *cogs):
         """Load or reload an extension."""
         cog_folder = "cogs"
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", cog_folder)
         cog_files = [name for _, name, _ in pkgutil.iter_modules([cogs_dir])]
-        if cog in cog_files:
-            ext_name = ("eevee.cogs."+cog)
-            was_loaded = ext_name in ctx.bot.extensions
-            try:
-                ctx.bot.unload_extension(ext_name)
-                ctx.bot.load_extension(ext_name)
-                if was_loaded:
-                    msg = cog+' module reloaded.'
-                else:
-                    msg = cog+' module loaded.'
-                embed = utils.make_embed(msg_type='success', title=msg)
-                await ctx.send(embed=embed)
-            except Exception as e:
-                # logger.critical('Error loading cog: {} - {}: {}'.format(
-                #    str(cog), type(e).__name__, e))
+        for cog in cogs:
+            if cog in cog_files:
+                ext_name = ("eevee.cogs."+cog)
+                was_loaded = ext_name in ctx.bot.extensions
+                try:
+                    ctx.bot.unload_extension(ext_name)
+                    ctx.bot.load_extension(ext_name)
+                    if was_loaded:
+                        msg = cog+' module reloaded.'
+                    else:
+                        msg = cog+' module loaded.'
+                    embed = utils.make_embed(msg_type='success', title=msg)
+                    await ctx.send(embed=embed)
+                except Exception as e:
+                    # logger.critical('Error loading cog: {} - {}: {}'.format(
+                    #    str(cog), type(e).__name__, e))
+                    embed = utils.make_embed(
+                        msg_type='error',
+                        title='Error when loading '+str(cog),
+                        content='{}: {}'.format(type(e).__name__, e))
+                    await ctx.send(embed=embed)
+                    raise
+
+            else:
                 embed = utils.make_embed(
                     msg_type='error',
-                    title='Error when loading '+str(cog),
-                    content='{}: {}'.format(type(e).__name__, e))
+                    title=cog+' module not found.')
                 await ctx.send(embed=embed)
-                raise
-
-        else:
-            embed = utils.make_embed(
-                msg_type='error',
-                title=cog+' module not found.')
-            await ctx.send(embed=embed)
 
     @cog.command()
     async def showext(self, ctx):
@@ -139,9 +140,9 @@ class CogManager:
             return embed
 
     @command(category='Owner', name='reload', aliases=['load'])
-    async def _reload(self, ctx, cog):
+    async def _reload(self, ctx, *cogs):
         """Reload Cog"""
-        ctx.message.content = f'{ctx.prefix}cog load {cog}'
+        ctx.message.content = f"{ctx.prefix}cog load {' '.join(cogs)}"
         await ctx.bot.process_commands(ctx.message)
 
 def setup(bot):
