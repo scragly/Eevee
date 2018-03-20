@@ -29,7 +29,9 @@ setup(
         'discord.py',
         'python-dateutil>=2.6',
         'asyncpg>=0.13',
-        'python-Levenshtein>=0.12'
+        'python-Levenshtein>=0.12',
+        'fuzzywuzzy',
+        'psutil'
     ],
 
     dependency_links=[
