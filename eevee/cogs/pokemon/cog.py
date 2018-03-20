@@ -46,7 +46,7 @@ class Pokedex:
         return self.type_emoji[type.lower()]
 
     def get_flavor(self, pkmn_id):
-        conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
+        conn = sqlite3.connect(os.path.join(self.bot.data_dir, 'pokedex-temp.sqlite'))
         c = conn.cursor()
         c.execute('SELECT species_id, flavor_text '
                   'FROM pokemon_species_flavor_text '
