@@ -12,6 +12,7 @@ from eevee.utils.converters import Multi
 from eevee.utils.formatters import code
 
 from .objects import Pokemon
+from .errors import PokemonNotFound
 
 def init_pokedata(bot):
     bot.pokemon = partial(Pokemon, bot)
@@ -36,6 +37,10 @@ class Pokedex:
         }
         self.type_emoji = bot.config.type_emoji
         init_pokedata(bot)
+
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, PokemonNotFound):
+            await ctx.send(error.pokemon + ' not found.')
 
     def get_type_emoji(self, type):
         return self.type_emoji[type.lower()]
@@ -201,31 +206,30 @@ class Pokedex:
             await self.did_you_mean(ctx, arg)
 
 
-    @pokedex.command()
-    async def dump(self, ctx):
-        conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
-        c = conn.cursor()
-        index = 1
-        
-        for pkmn, data in ctx.bot.pkmn_info_json["pokemon"].items():
-            c.execute('SELECT species_id, flavor_text '
-                      'FROM pokemon_species_flavor_text '
-                      'WHERE version_id = 26 AND language_id = 9 '
-                      'AND species_id = {}'.format(index))
-            flavor_data = c.fetchone()
-            if flavor_data:
-                flavor = flavor_data[1]
-            else:
-                flavor = None
-            new_dict['pokemon'][f'{index:03}'] = {
-                'name_en': pkmn,
-                'types'  : data['types']
-            }
-            if flavor:
-                new_dict['pokemon'][f'{index:03}']['flavor'] = flavor
-            index += 1
-            continue
-        with open(os.path.join(ctx.bot.data_dir, "raid_info_new.json"), mode='w') as fp:
-            json.dump(new_dict, fp, indent=4, sort_keys=True)
-        await ctx.send('complete')
+    # @pokedex.command()
+    # async def dump(self, ctx):
+    #     conn = sqlite3.connect('F:/Github/veekun-pokedex.sqlite/veekun-pokedex.sqlite')
+    #     c = conn.cursor()
+    #     index = 1
 
+    #     for pkmn, data in ctx.bot.pkmn_info_json["pokemon"].items():
+    #         c.execute('SELECT species_id, flavor_text '
+    #                   'FROM pokemon_species_flavor_text '
+    #                   'WHERE version_id = 26 AND language_id = 9 '
+    #                   'AND species_id = {}'.format(index))
+    #         flavor_data = c.fetchone()
+    #         if flavor_data:
+    #             flavor = flavor_data[1]
+    #         else:
+    #             flavor = None
+    #         new_dict['pokemon'][f'{index:03}'] = {
+    #             'name_en': pkmn,
+    #             'types'  : data['types']
+    #         }
+    #         if flavor:
+    #             new_dict['pokemon'][f'{index:03}']['flavor'] = flavor
+    #         index += 1
+    #         continue
+    #     with open(os.path.join(ctx.bot.data_dir, "raid_info_new.json"), mode='w') as fp:
+    #         json.dump(new_dict, fp, indent=4, sort_keys=True)
+    #     await ctx.send('complete')

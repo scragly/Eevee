@@ -3,9 +3,10 @@ from eevee.cogs.pokemon import Pokemon
 from .objects import Weather, PBRaid
 
 
-
 class PokeBattler:
     """PokeBattler integration."""
+
+    PBRaid = PBRaid
 
     def __init__(self, bot):
         self.bot = bot
@@ -15,9 +16,9 @@ class PokeBattler:
         }
 
     @command()
-    async def battle(self, ctx, pkmn: Pokemon,
-                     weather: Weather.match_name = Weather.DEFAULT,
-                     move1=None, move2=None, userid=None):
+    async def counters(self, ctx, pkmn: Pokemon,
+                       weather: Weather.match_name = Weather.DEFAULT,
+                       move1=None, move2=None, userid=None):
         """Simulate a Raid battle with Pokebattler.
 
         Weather options:
@@ -48,11 +49,13 @@ class PokeBattler:
             stats_msg += f"**Pokebox UserID:** {pb_raid.userid}"
         else:
             stats_msg += f"**Attacker Level:** {pb_raid.atk_lvl}"
+        
+        pkmn_colour = await pkmn.colour()
         embed = await ctx.embed(
             title, title_url=pb_raid.public_url,
             icon='https://i.imgur.com/fn9E5nb.png', thumbnail=pkmn.img_url,
             footer_icon=pbtlr_icon, footer='Results courtesy of Pokebattler',
-            send=False)
+            colour=pkmn_colour, send=False)
         embed.add_field(name='Raid Stats', value=stats_msg, inline=False)
         max_power = None
         for counter in pb_raid.counters:

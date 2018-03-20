@@ -47,30 +47,25 @@ class CounterPkmn(Pokemon):
                  'move1', 'move2', 'cp', 'win', 'combat_time', 'deaths',
                  'potions', 'power', 'rating', 'win_ratio')
 
-    def __init__(self, bot, data):
+    def __init__(self, bot, data, weather=None):
         pkmn_list = list(bot.pkmn_info.keys())
         pkmn = data.pop('pokemonId').replace('_', ' ')
         pkmn = get_match(pkmn_list, pkmn, score_cutoff=80)[0]
-        super().__init__(bot, pkmn)
         self.cp = data.pop('cp')
-        self.move1 = self.clean_txt(data['byMove'][-1].pop('move1')[:-5])
-        self.move2 = self.clean_txt(data['byMove'][-1].pop('move2'))
+        move1 = self.clean_txt(data['byMove'][-1].pop('move1')[:-5])
+        move2 = self.clean_txt(data['byMove'][-1].pop('move2'))
+        super().__init__(bot, pkmn, moveset=(move1, move2), weather=weather)
         result = data['byMove'][-1]['result']
-        self.win = result.pop('win')
-        self.win_ratio = round(result.pop('winRatio'), 2)
-        self.combat_time = round(result.pop('effectiveCombatTime')/1000, 2)
-        self.deaths = round(result.pop('deaths'), 2)
-        self.potions = round(result.pop('potions'), 2)
-        self.power = round(result.pop('power'), 2)
-        self.rating = round(1/result.pop('overallRating'), 2)
+        self.win = result.pop('win', None)
+        self.win_ratio = round(result.pop('winRatio', 0), 2)
+        self.combat_time = round(result.pop('effectiveCombatTime', 0)/1000, 2)
+        self.deaths = round(result.pop('deaths', 0), 2)
+        self.potions = round(result.pop('potions', 0), 2)
+        self.power = round(result.pop('power', 0), 2)
+        self.rating = round(1/result.pop('overallRating', 0), 2)
 
     def clean_txt(self, txt: str):
         return txt.replace('_', ' ').title()
-
-    @property
-    def moveset(self):
-        return (self.move1, self.move2)
-
 
 class PBRaid:
     """Represents a Pokebattler Raid
@@ -130,7 +125,6 @@ class PBRaid:
             if resp.status != 200:
                 raise RuntimeError('Pokebattler failed to repond.')
             json_data = await resp.json()
-            print(resp.headers)
             return self._parse_data(json_data['attackers'][0])
 
     def _parse_data(self, data):
@@ -158,6 +152,16 @@ class PBRaid:
             self._moveset = (mv1, mv2)
         return self.set_counters()
 
+    async def change_weather(self, weather=None):
+        weather = Weather.match_name(weather)
+        if weather != self.weather:
+            await self.get_data()
+        return self
+
+    @staticmethod
+    async def get_weather(weather: str = "DEFAULT"):
+        return Weather.match_name(weather)
+
     def clean_txt(self, txt: str):
         return txt.replace('_', ' ').title()
 
@@ -169,7 +173,7 @@ class PBRaid:
             counters = self._no_moveset_data[-6:]
         self.counters = []
         for counter in reversed(counters):
-            self.counters.append(CounterPkmn(self.bot, counter))
+            self.counters.append(CounterPkmn(self.bot, counter, self.weather))
 
     @property
     def moveset(self):
