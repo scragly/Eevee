@@ -4,6 +4,7 @@ import discord
 from discord.abc import Messageable
 from discord.ext import commands
 
+from eevee.core import checks
 from eevee.utils.formatters import convert_to_bool, make_embed
 
 class Context(commands.Context):
@@ -15,9 +16,22 @@ class Context(commands.Context):
             self.guild_dm = self.bot.data.guild(self.guild.id)
             self.setting = self.guild_dm.settings
 
+    async def is_co_owner(self):
+        return await checks.check_is_co_owner(self)
+
     @property
     def cog_name(self):
         return self.command.instance.__class__.__name__
+
+    async def admin_role(self):
+        role_id = await self.setting('AdminRole')
+        role = discord.utils.get(self.guild.roles, id=int(role_id))
+        return role
+
+    async def mod_role(self):
+        role_id = await self.setting('ModRole')
+        role = discord.utils.get(self.guild.roles, id=int(role_id))
+        return role
 
     async def cog_enabled(self, value: bool = None, *, clear=False):
         if clear:
@@ -30,10 +44,30 @@ class Context(commands.Context):
                 value = convert_to_bool(value)
             return value
 
+    async def error(self, title, details=None, log_level='warning',
+                    exc: Exception = None):
+        """Submit an error to log and reply with error message"""
+        msg = await self.embed(
+            title=title, description=details, msg_type='error')
+        if exc:
+            raise exc(details)
+        else:
+            log = getattr(self.bot.logger, log_level, 'warning')
+            log_msg = f"Error in command '{self.command}': {title}"
+            if details:
+                log_msg += f" - {details}"
+            log(log_msg)
+        return msg
+
+    async def info(self, title, details=None, send=True):
+        """Quick send or build an info embed response."""
+        return await self.embed(title, details, msg_type='info', send=send)
+
     async def embed(self, title, description=None, plain_msg='', *,
                     msg_type=None, title_url=None, colour=None,
                     icon=None, thumbnail='', image='', fields: dict = None,
                     footer=None, footer_icon=None, send=True):
+        """Send or build an embed using context details."""
         embed = make_embed(title=title, content=description, msg_type=msg_type,
                            title_url=title_url, msg_colour=colour, icon=icon,
                            thumbnail=thumbnail, image=image, guild=self.guild)
@@ -48,7 +82,8 @@ class Context(commands.Context):
 
         if not send:
             return embed
-        await self.send(plain_msg, embed=embed)
+
+        return await self.send(plain_msg, embed=embed)
 
     async def ask(self, message, *, timeout: float = 30.0,
                   autodelete: bool = True, options: list = None,
