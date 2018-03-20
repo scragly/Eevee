@@ -1,13 +1,29 @@
 from discord.ext import commands
 
-class BotCommand(commands.Converter):
-    async def convert(self, ctx, arg):
+class BotCommand:
+    """Convert string to Command object from Bot.
+
+    Returns
+    --------
+    :class:`discord.ext.commands.Command`
+    """
+    @classmethod
+    async def convert(cls, ctx, arg):
         cmd = ctx.bot.get_command(arg)
         if cmd is None:
             raise commands.BadArgument(f"Command not found.")
         return cmd
 
 class Multi(commands.Converter):
+    """Convert multiple conversion types.
+
+    Conversion will be attempted in order of first type to last type.
+
+    Parameters
+    -----------
+    *types
+        Types to be attempted for arg conversion
+    """
     def __init__(self, *types):
         self.types = types
 
@@ -22,7 +38,13 @@ class Multi(commands.Converter):
             f"{arg} was not able to convert to the following types: "
             f"{type_names}")
 
-class Guild(commands.Converter):
+class Guild:
+    """Convert string to Command object from Bot.
+
+    Returns
+    --------
+    :class:`discord.Guild`
+    """
     async def convert(self, ctx, arg):
         guild = None
         if arg.isdigit():

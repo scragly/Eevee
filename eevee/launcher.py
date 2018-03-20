@@ -1,3 +1,22 @@
+"""Eevee launcher with auto-restart ability.
+
+Command:
+    ``eevee``
+
+Options:
+    -r, --no-restart  Disable auto-restart.
+    --debug            Enable debug mode.
+
+Exit codes:
+    ===== ======== ===========
+    Value Name     Description
+    ===== ======== ===========
+    0     SHUTDOWN Close down laucher.
+    1     CRITICAL Inform of crash and attempt restart by default.
+    26    RESTART  Restart Meowth.
+    ===== ======== ===========
+"""
+
 import sys
 import argparse
 import subprocess
@@ -13,23 +32,6 @@ def parse_cli_args():
     return parser.parse_known_args()
 
 def main():
-    """Launch Eevee via subprocess, passing args onto it and wait for exit.
-
-    CLI Launch Arguments
-            ``--no-restart | -r``
-
-            Disable auto-restart. 
-
-            ``--debug``
-
-            Enable debug mode. 
-
-    Exit codes::
-
-        0 (SHUTDOWN): Close down laucher.
-        1 (CRITICAL): Inform of crash and attempt restart by default.
-        26 (RESTART): Restart Meowth.
-    """
 
     print("==================================\n"
           "Eevee - Pokemon Go Bot for Discord\n"
@@ -63,3 +65,6 @@ def main():
             print("I crashed! Trying to restart...\n")
     print("Exit code: {exit_code}".format(exit_code=code))
     sys.exit(code)
+
+if __name__ == '__main__':
+    main()

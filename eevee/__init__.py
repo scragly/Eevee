@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Eevee - A Discord helper bot for Pokemon Go communities.
+"""A Pokemon Go Community Bot for Discord.
 
 Eevee is a Discord bot written in Python 3.6.1 using version 1.0.0a of the discord.py library.
 It assists with the organisation of local Pokemon Go Discord servers and their members."""

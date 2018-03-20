@@ -147,10 +147,12 @@ class Dev:
 
     @command(category="Developer")
     async def clear_console(self, ctx):
+        """Clear the console"""
         os.system('cls')
 
     @command(category="Developer")
     async def guild(self, ctx, *, guild: Guild):
+        """Lookup Guild info"""
         if guild:
             if guild.unavailable:
                 embed = make_embed(
@@ -208,27 +210,29 @@ class Dev:
 
     @command(category="Developer", name='say')
     async def _say(self, ctx, *, msg):
-        """Eevee will repeat the given message."""
+        """Repeat the given message."""
         await ctx.send(msg)
 
     @command(category="Developer")
     async def emoji(self, ctx, emoji_id: int):
-        """Eevee will post the matching emoji if it shares it's server."""
+        """Sends a custom emoji by the given ID."""
         await ctx.send(f'<:emojitest:{emoji_id}>')
 
     @command(category="Developer")
     async def check_perms(
-        self, ctx, member_or_role: Multi(discord.Member, discord.Role),
-        guild_or_channel: Multi(
-            discord.Guild, discord.TextChannel, discord.VoiceChannel)=None):
+            self, ctx, member_or_role: Multi(discord.Member, discord.Role),
+            guild_or_channel: Multi(
+                discord.Guild, discord.TextChannel, discord.VoiceChannel)=None):
         """Show permissions of a member or role for the guild and channel."""
-        full_scope = True
         if guild_or_channel:
             if isinstance(guild_or_channel, discord.Guild):
-                guild_perms = guild.me.guild_permissions
+                guild_perms = ctx.guild.me.guild_permissions
         else:
             guild_perms = ctx.guild.me.guild_permissions
-            chan_perms = ctx.channel.permissions_for(ctx.guild.me)
+            if isinstance(member_or_role, discord.Member):
+                chan_perms = ctx.channel.permissions_for(member_or_role)
+            else:
+                return await ctx.send("Role Permissions aren't done yet.")
 
         req_perms = ctx.bot.req_perms
         g_perms_compare = guild_perms >= req_perms
@@ -260,7 +264,7 @@ class Dev:
             if chan_perms.embed_links:
                 embed = make_embed(
                     msg_type='info',
-                    title='Bot Permissions',
+                    title=f'Permissions for {member_or_role}',
                     content=msg)
                 await ctx.send(embed=embed)
             else:
@@ -268,6 +272,6 @@ class Dev:
         except discord.errors.Forbidden:
             embed = make_embed(
                 msg_type='info',
-                title='Guild Permissions',
+                title=f'Permissions for {member_or_role}',
                 content=msg)
             await ctx.author.send(embed=embed)
