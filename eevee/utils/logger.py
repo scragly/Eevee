@@ -5,42 +5,55 @@ import logging
 from logging import handlers
 
 
-def init_logger(debug_flag=False):
-    log_level = logging.INFO if debug_flag else logging.WARNING
+def init_logger(data_dir, debug_flag=False):
 
-    # d_py logs
+    # setup discord logger
     discord_log = logging.getLogger("discord")
-    discord_log.setLevel(log_level)
-    console = logging.StreamHandler()
-    console.setLevel(log_level)
-    discord_log.addHandler(console)
+    discord_log.setLevel(logging.INFO)
 
-    # eevee logs
-    logger = logging.getLogger("eevee")
+    # setup eevee logger
+    eevee_log = logging.getLogger("eevee")
 
-    eevee_format = logging.Formatter(
-        '%(asctime)s %(levelname)s %(module)s %(funcName)s %(lineno)d: '
+    # setup log directory
+    log_path = os.path.join(data_dir, 'logs')
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+
+    # file handler factory
+    def create_fh(file_name):
+        fh_path = os.path.join(log_path, file_name)
+        return handlers.RotatingFileHandler(
+            filename=fh_path, encoding='utf-8', mode='a',
+            maxBytes=400000, backupCount=20)
+
+    # set eevee log formatting
+    log_format = logging.Formatter(
+        '%(asctime)s %(name)s %(levelname)s %(module)s %(funcName)s %(lineno)d: '
         '%(message)s',
         datefmt="[%d/%m/%Y %H:%M]")
 
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(eevee_format)
-    logger.setLevel(log_level)
+    # create file handlers
+    eevee_fh = create_fh('eevee.log')
+    eevee_fh.setLevel(logging.INFO)
+    eevee_fh.setFormatter(log_format)
+    eevee_log.addHandler(eevee_fh)
+    discord_fh = create_fh('discord.log')
+    discord_fh.setLevel(logging.INFO)
+    discord_fh.setFormatter(log_format)
+    discord_log.addHandler(discord_fh)
 
-    if not os.path.exists('./logs/'):
-        os.makedirs('./logs/')
+    # create console handler
+    console_std = sys.stdout if debug_flag else sys.stderr
+    eevee_console = logging.StreamHandler(console_std)
+    eevee_console.setLevel(logging.INFO if debug_flag else logging.WARNING)
+    eevee_console.setFormatter(log_format)
+    eevee_log.addHandler(eevee_console)
+    discord_console = logging.StreamHandler(console_std)
+    discord_console.setLevel(logging.WARNING)
+    discord_console.setFormatter(log_format)
+    discord_log.addHandler(discord_console)
 
-    logfile_path = './logs/eevee.log'
-    fhandler = handlers.RotatingFileHandler(
-        filename=str(logfile_path), encoding='utf-8', mode='a',
-        maxBytes=400000, backupCount=20)
-    fhandler.setFormatter(eevee_format)
-
-    logger.addHandler(fhandler)
-    if debug_flag:
-        logger.addHandler(stdout_handler)
-
-    return logger
+    return eevee_log
 
 class DBHandler(logging.Handler):
     def emit(self, record):
