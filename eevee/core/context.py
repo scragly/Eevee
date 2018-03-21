@@ -7,6 +7,95 @@ from discord.ext import commands
 from eevee.core import checks
 from eevee.utils.formatters import convert_to_bool, make_embed
 
+
+class GetTools:
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.get = discord.utils.get
+
+    def channel(self, id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            return guild.get_channel(id)
+        if name:
+            return self.get(guild.channels, name=name)
+
+    def text_channel(self, id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            channel = guild.get_channel(id)
+            if isinstance(channel, discord.TextChannel):
+                return channel
+            return None
+        if name:
+            return self.get(guild.text_channels, name=name)
+
+    def id(self, voice_channel_id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            channel = guild.get_channel(id)
+            if isinstance(channel, discord.VoiceChannel):
+                return channel
+            return None
+        if name:
+            return self.get(guild.voice_channels, name=name)
+
+    def category(self, id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            channel = guild.get_channel(id)
+            if isinstance(channel, discord.CategoryChannel):
+                return channel
+            return None
+        if name:
+            return self.get(guild.categories, name=name)
+
+    def member(self, id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            return guild.get_member(id)
+        if name:
+            member = self.get(guild.members, name=name)
+            if not member:
+                member = self.get(guild.members, nick=name)
+            if not member:
+                members = {str(m) : m for m in guild.members}
+                member = members.get(name, None)
+            return member
+
+    def role(self, id=None, name=None):
+        guild = self.ctx.guild
+        if not guild:
+            return None
+        if id:
+            return self.get(guild.roles, id=id)
+        if name:
+            return self.get(guild.roles, name=name)
+
+    def guild(self, id=None, name=None):
+        bot = self.ctx.bot
+        if id:
+            return bot.get_guild(id)
+        if name:
+            return self.get(bot.guilds, name=name)
+
+    def emoji(self, id=None, name=None):
+        bot = self.ctx.bot
+        if id:
+            return bot.get_emoji(id)
+        if name:
+            return self.get(bot.emojis, name=name)
+
 class Context(commands.Context):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -15,6 +104,7 @@ class Context(commands.Context):
         if self.guild:
             self.guild_dm = self.bot.data.guild(self.guild.id)
             self.setting = self.guild_dm.settings
+        self.get = GetTools(self)
 
     async def is_co_owner(self):
         return await checks.check_is_co_owner(self)
