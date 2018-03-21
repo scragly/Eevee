@@ -45,11 +45,11 @@ def init_logger(data_dir, debug_flag=False):
     # create console handler
     console_std = sys.stdout if debug_flag else sys.stderr
     eevee_console = logging.StreamHandler(console_std)
-    eevee_console.setLevel(logging.INFO if debug_flag else logging.WARNING)
+    eevee_console.setLevel(logging.INFO if debug_flag else logging.ERROR)
     eevee_console.setFormatter(log_format)
     eevee_log.addHandler(eevee_console)
     discord_console = logging.StreamHandler(console_std)
-    discord_console.setLevel(logging.WARNING)
+    discord_console.setLevel(logging.ERROR)
     discord_console.setFormatter(log_format)
     discord_log.addHandler(discord_console)
 
