@@ -15,9 +15,9 @@ def to_timestamp(_id):
 
 def create():
     """Create and return snowflake for current time."""
-    sleep=lambda x: time.sleep(x/1000.0)
-    worker_id=1
-    data_center_id=1
+    sleep = lambda x: time.sleep(x/1000.0)
+    worker_id = 1
+    data_center_id = 1
     worker_id_bits = 5
     data_center_id_bits = 5
     max_worker_id = -1 ^ (-1 << worker_id_bits)

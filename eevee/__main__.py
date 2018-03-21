@@ -27,7 +27,7 @@ if discord.version_info.major < 1:
 def run_eevee(debug=False, launcher=None):
     description = "Eevee v2 - Alpha"
     eevee = bot.Eevee(description=description, launcher=launcher, debug=debug)
-    eevee.logger = logger.init_logger(eevee.data_dir, debug)
+    eevee.logger = logger.init_logger(eevee, debug)
     eevee.load_extension('eevee.core.error_handling')
     eevee.load_extension('eevee.core.commands')
     eevee.load_extension('eevee.core.cog_manager')

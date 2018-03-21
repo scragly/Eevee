@@ -1,11 +1,18 @@
+import asyncio
 import os
 import sys
 
+import time
 import logging
 from logging import handlers
 
+from eevee.utils import snowflake
 
-def init_logger(data_dir, debug_flag=False):
+get_id = snowflake.create()
+
+LOGGERS = ('eevee_logs', 'discord_logs')
+
+def init_logger(bot, debug_flag=False):
 
     # setup discord logger
     discord_log = logging.getLogger("discord")
@@ -15,7 +22,7 @@ def init_logger(data_dir, debug_flag=False):
     eevee_log = logging.getLogger("eevee")
 
     # setup log directory
-    log_path = os.path.join(data_dir, 'logs')
+    log_path = os.path.join(bot.data_dir, 'logs')
     if not os.path.exists(log_path):
         os.makedirs(log_path)
 
@@ -53,10 +60,45 @@ def init_logger(data_dir, debug_flag=False):
     discord_console.setFormatter(log_format)
     discord_log.addHandler(discord_console)
 
+    # create db handler
+    eevee_db = DBLogHandler(bot, 'eevee_logs')
+    eevee_log.addHandler(eevee_db)
+    discord_db = DBLogHandler(bot, 'discord_logs')
+    discord_log.addHandler(discord_db)
+
     return eevee_log
 
-class DBHandler(logging.Handler):
+class DBLogHandler(logging.Handler):
+    def __init__(self, bot, log_name: str, level=logging.INFO):
+        if log_name not in LOGGERS:
+            raise RuntimeError(f'Unknown Log Name: {log_name}')
+        self.bot = bot
+        self.loop = bot.loop
+        self.log_name = log_name
+        self._backlog = {}
+        super().__init__(level=level)
+
+    @property
+    def logging_stmt(self):
+        return self.bot.dbi.logging_stmts.get(self.log_name, None)
+
     def emit(self, record):
-        log_entry = self.format(record)
-        # add database data submission bit here
-        # db.DatabaseInterface
+        record_id = next(get_id)
+        if not self.logging_stmt:
+            self._backlog[record_id] = record
+        else:
+            if self._backlog:
+                self._process_backlog()
+
+        asyncio.run_coroutine_threadsafe(
+            self.submit_log(record_id, record), self.loop)
+
+    def _process_backlog(self):
+        for k, v in self._backlog.items():
+            asyncio.run_coroutine_threadsafe(self.submit_log(k, v), self.loop)
+
+    async def submit_log(self, log_id, record):
+        values = (log_id, record.created, record.name, record.levelname,
+                  record.pathname, record.module, record.funcName,
+                  record.lineno, record.message)
+        await self.logging_stmt.fetch(*values)

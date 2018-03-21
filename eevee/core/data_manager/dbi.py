@@ -4,8 +4,9 @@ import asyncpg
 
 from discord.ext.commands import when_mentioned_or
 
+from eevee.core.logger import LOGGERS
 from .schema import Table
-from .tables import CORE_TABLE_SQL
+from .tables import core_table_sqls
 from . import types
 
 module_logger = logging.getLogger('eevee.core.dbi')
@@ -27,6 +28,8 @@ class DatabaseInterface:
         self.prefix_stmt = None
         self.settings_conn = None
         self.settings_stmt = None
+        self.logging_conn = None
+        self.logging_stmts = {}
         self.types = types
         self.log = logging.getLogger('eevee.core.dbi.DatabaseInterface')
 
@@ -34,28 +37,44 @@ class DatabaseInterface:
         if loop:
             self.loop = loop
         self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
+        await self.prepare()
+        await self.first_start_check()
+
+    async def prepare(self):
+        # guild prefix callable statement
         self.prefix_conn = await self.pool.acquire()
-        self.settings_conn = await self.pool.acquire()
         prefix_sql = 'SELECT prefix FROM prefix WHERE guild_id=$1;'
+        self.prefix_stmt = await self.prefix_conn.prepare(prefix_sql)
+
+        # guild settings statement
+        self.settings_conn = await self.pool.acquire()
         settings_sql = ('SELECT config_value FROM guild_config '
                         'WHERE guild_id=$1 AND config_name=$2;')
-        self.prefix_stmt = await self.prefix_conn.prepare(prefix_sql)
         self.settings_stmt = await self.settings_conn.prepare(settings_sql)
-        if await self.first_start():
-            self.log.warning('Core tables not found - Initialising')
-            await self.execute_transaction(self, CORE_TABLE_SQL)
-            self.log.warning('Core tables created')
 
-    async def first_start(self):
-        prefix_exists = await self.table('prefix').exists()
-        guild_config_exists = await self.table('guild_config').exists()
-        return not all((prefix_exists, guild_config_exists))
+        # logging statement
+        self.logging_conn = await self.pool.acquire()
+        log_sql = ('INSERT INTO {log_table} '
+                   'VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9);')
+        for log in LOGGERS:
+            _sql = log_sql.format(log_table=log)
+            self.logging_stmts[log] = await self.settings_conn.prepare(_sql)
+
+    async def first_start_check(self):
+        core_sql = core_table_sqls()
+        for k, v in core_sql.items():
+            table_exists = await self.table(k).exists()
+            if not table_exists:
+                self.log.warning(f'Core table {k} not found. Creating...')
+                print(v)
+                await self.execute_transaction(v)
+                self.log.warning(f'Core table {k} created.')
 
     async def stop(self):
-        if self.prefix_conn:
-            await self.pool.release(self.prefix_conn)
-            self.prefix_conn = None
-            self.prefix_stmt = None
+        conns = (self.prefix_conn, self.settings_conn, self.logging_conn)
+        for c in conns:
+            if c:
+                await self.pool.release(c)
         if self.pool:
             await self.pool.close()
             self.pool.terminate()
