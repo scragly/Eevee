@@ -37,8 +37,8 @@ class DatabaseInterface:
         if loop:
             self.loop = loop
         self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
-        await self.prepare()
         await self.first_start_check()
+        await self.prepare()
 
     async def prepare(self):
         # guild prefix callable statement
@@ -66,7 +66,6 @@ class DatabaseInterface:
             table_exists = await self.table(k).exists()
             if not table_exists:
                 self.log.warning(f'Core table {k} not found. Creating...')
-                print(v)
                 await self.execute_transaction(v)
                 self.log.warning(f'Core table {k} created.')
 

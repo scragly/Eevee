@@ -14,7 +14,49 @@ def core_table_sqls():
                           "guild_id bigint NOT NULL, "
                           "prefix text NOT NULL, "
                           "CONSTRAINT prefixes_pkey "
-                          "PRIMARY KEY (guild_id));")
+                          "PRIMARY KEY (guild_id));"),
+
+        'discord_messages' : ("CREATE TABLE discord_messages ("
+                              "message_id bigint NOT NULL, "
+                              "sent bigint NOT NULL, "
+                              "is_edit bool NOT NULL DEFAULT FALSE, "
+                              "deleted bool NOT NULL DEFAULT FALSE, "
+                              "author_id bigint NOT NULL, "
+                              "channel_id bigint NOT NULL, "
+                              "guild_id bigint, "
+                              "content text, "
+                              "clean_content text, "
+                              "embeds jsonb[], "
+                              "webhook_id bigint, "
+                              "attachments text[], "
+                              "CONSTRAINT discord_messages_pkey "
+                              "PRIMARY KEY (message_id, sent));"),
+
+        'member_activity'  : ("CREATE TABLE member_activity ("
+                              "member_id bigint NOT NULL, "
+                              "time bigint NOT NULL, "
+                              "status text, "
+                              "from_status text, "
+                              "guild_id bigint, "
+                              "display_name text, "
+                              "CONSTRAINT member_activity_pkey "
+                              "PRIMARY KEY (member_id, time));"),
+
+        'command_log'      : ("CREATE TABLE command_log ("
+                              "message_id bigint NOT NULL, "
+                              "sent bigint NOT NULL, "
+                              "author_id bigint NOT NULL, "
+                              "channel_id bigint NOT NULL, "
+                              "guild_id bigint, "
+                              "prefix text NOT NULL, "
+                              "command text NOT NULL, "
+                              "invoked_with text NOT NULL, "
+                              "invoked_subcommand text, "
+                              "subcommand_passed text, "
+                              "command_failed bool NOT NULL DEFAULT FALSE, "
+                              "cog text, "
+                              "CONSTRAINT command_log_pkey "
+                              "PRIMARY KEY (message_id, sent));")
     }
 
     log_sql = ("CREATE TABLE {log_table} ("
@@ -27,6 +69,7 @@ def core_table_sqls():
                "func_name text, "
                "line_no int, "
                "message text, "
+               "traceback text, "
                "CONSTRAINT {log_table}_pkey "
                "PRIMARY KEY (log_id));")
 
