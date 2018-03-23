@@ -137,6 +137,8 @@ class ActivityLogging:
                 ctx.command_failed, cog)
         try:
             await self.bot.dbi.table('command_log').insert(data)
+        except asyncpg.UniqueViolationError:
+            pass
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
