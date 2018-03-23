@@ -13,6 +13,9 @@ class GetTools:
         self.ctx = ctx
         self.get = discord.utils.get
 
+    async def message(self, id):
+        return await self.ctx.channel.get_message(id)
+
     def channel(self, id=None, name=None):
         guild = self.ctx.guild
         if not guild:
