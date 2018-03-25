@@ -246,7 +246,7 @@ class Core:
     def get_cpu(self):
         return psutil.cpu_percent(interval=1)
 
-    @command(name="stats", category='Owner')
+    @command(name="stats", category='Owner', aliases=['statistics'])
     @checks.is_co_owner()
     async def _stats(self, ctx):
         """Shows stats about Eevee"""
@@ -258,7 +258,6 @@ class Core:
         mem_p = round((mem.available / mem.total) * 100, 2)
         bot_process = psutil.Process()
         ppid = bot_process.ppid()
-        p_user = bot_process.username()
         p_mem = bot_process.memory_info().rss
         swapped = psutil.swap_memory().used
 
@@ -282,6 +281,9 @@ class Core:
             server_count += 1
             member_count += guild.member_count
 
+        message_count = await bot.dbi.table('discord_messages').get_value('COUNT(*)')
+        command_count = await bot.dbi.table('command_log').get_value('COUNT(*)')
+
         embed = make_embed(
             msg_type='info', title="Eevee Statistics")
         instance_msg = (
@@ -291,21 +293,16 @@ class Core:
             f"**Python:** {bot.py_version}")
         session_msg = (
             f"**Servers:** {server_count}\n**Members:** {member_count}\n"
-            f"**Messages:** {bot.message_count}\n"
-            f"**Commands:** {bot.command_count}\n"
+            f"**Messages:** {message_count}\n"
+            f"**Commands:** {command_count}\n"
             f"**Reconnections:** {bot.resumed_count}")
         process_msg = (
             f"**PID:** {ppid}\n**Process RAM:** {p_mem_str}\n"
             f"**Swap File:** {swap_str}\n**System RAM:** {mem_p}\n"
             f"**System CPU:** {cpu_p}\n")
-        embed.add_field(name="SESSION", value=session_msg)
+        embed.add_field(name="ACTIVITY", value=session_msg)
         embed.add_field(name="PROCESS", value=process_msg)
         embed.add_field(name="INSTANCE", value=instance_msg)
-        # cpm = bot.message_count/(bot.uptime.seconds+(bot.uptime.minutes*60))
-        # activity_msg = (
-        #     f"**Commands/min:** {cpm:.2f}\n"
-        #     f"**Active Raids:** {0}\n")
-        # embed.add_field(name="ACTIVITY", value=activity_msg)
 
         try:
             await ctx.send(embed=embed)
