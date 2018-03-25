@@ -3,10 +3,12 @@ import importlib
 import logging
 import sys
 
+from eevee.utils import Map
+
 class Cog:
     def __init__(self, bot):
         self.bot = bot
-        self.cog_table = None
+        self.tables = None
         module = self.__class__.__module__
         cog = self.__class__.__name__
         log_name = f"{module}.{cog}"
@@ -25,4 +27,16 @@ class Cog:
                     self._table_setup(tbl_mod), bot.loop)
 
     async def _table_setup(self, module):
-        self.cog_table = await module.setup(self.bot)
+        cog_name = self.__class__.__name__
+        cog_tables = module.setup(self.bot)
+        if not isinstance(cog_tables, (list, tuple)):
+            cog_tables = [cog_tables]
+        self.tables_tables = Map({t.name:t for t in cog_tables})
+        for table in self.tables_tables.values():
+            if await table.exists():
+                self.logger.info(
+                    f'Cog table {table.name} for {cog_name} found.')
+                table.new_columns = []
+                continue
+            await table.create()
+            self.logger.info(f'Cog table {table.name} for {cog_name} created.')

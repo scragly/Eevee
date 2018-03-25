@@ -15,7 +15,7 @@ class Tests(Cog):
     """Test Features"""
 
     async def __local_check(self, ctx):
-        if not self.cog_table:
+        if not self.tables:
             pass
         owner = await checks.check_is_co_owner(ctx)
         enabled = await checks.check_cog_enabled(ctx)
@@ -27,7 +27,7 @@ class Tests(Cog):
 
     @command()
     async def log_test(self, ctx, *, log_msg):
-        self.logger.error(log_msg)
+        self.logger.info(log_msg)
         await ctx.send(f'Sent the following log msg:\n{log_msg}')
 
     @command()
