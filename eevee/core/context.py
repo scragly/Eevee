@@ -9,14 +9,51 @@ from eevee.utils.formatters import convert_to_bool, make_embed
 
 
 class GetTools:
+    """Tools to easily get discord objects via Context."""
+
     def __init__(self, ctx):
         self.ctx = ctx
         self.get = discord.utils.get
 
-    async def message(self, id):
-        return await self.ctx.channel.get_message(id)
+    async def message(self, id, channel=None):
+        """Get a message from the current or specified channels.
 
-    def channel(self, id=None, name=None):
+        Parameters
+        -----------
+        id: :class:`id`
+            The message ID
+        channel: :class:`discord.abc.Messageable`, optional
+            Specify channel other than the current one. Can take a discord
+            Channel object or an ID. ID lookups are limited to current guild.
+
+        Returns
+        --------
+        :class:`discord.Message` or :obj:`None`
+            Returns the Message or None if not found.
+        """
+        channel = channel or self.ctx.channel
+        return await channel.get_message(id)
+
+    def channel(self, id=None, name=None, guild=None):
+        """Get a channel from the current or specified guild.
+
+        Can search by either id or name.
+
+        Parameters
+        -----------
+        id: :class:`id`
+            The channel ID, optional
+        name: :class:`str`
+            The channel name, optional
+        guild: :class:`discord.Guild`, optional
+            Specify guild other than the current one. Can take a discord
+            Guild object or an ID. ID lookups are limited to current guild.
+
+        Returns
+        --------
+        :class:`discord.abc.GuildChannel` or :obj:`None`
+            Returns the Message or None if not found.
+        """
         guild = self.ctx.guild
         if not guild:
             return None
@@ -25,7 +62,7 @@ class GetTools:
         if name:
             return self.get(guild.channels, name=name)
 
-    def text_channel(self, id=None, name=None):
+    def text_channel(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
@@ -37,7 +74,7 @@ class GetTools:
         if name:
             return self.get(guild.text_channels, name=name)
 
-    def id(self, voice_channel_id=None, name=None):
+    def id(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
@@ -49,7 +86,7 @@ class GetTools:
         if name:
             return self.get(guild.voice_channels, name=name)
 
-    def category(self, id=None, name=None):
+    def category(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
@@ -61,7 +98,7 @@ class GetTools:
         if name:
             return self.get(guild.categories, name=name)
 
-    def member(self, id=None, name=None):
+    def member(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
@@ -76,7 +113,7 @@ class GetTools:
                 member = members.get(name, None)
             return member
 
-    def role(self, id=None, name=None):
+    def role(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
@@ -108,6 +145,9 @@ class Context(commands.Context):
             self.guild_dm = self.bot.data.guild(self.guild.id)
             self.setting = self.guild_dm.settings
         self.get = GetTools(self)
+
+    async def ok(self):
+        await self.message.add_reaction('\u2705')
 
     async def is_co_owner(self):
         return await checks.check_is_co_owner(self)
