@@ -19,6 +19,9 @@ module_logger = logging.getLogger('eevee.core.logger')
 
 def init_logger(bot, debug_flag=False):
 
+    # set root logger level
+    logging.getLogger().setLevel(logging.DEBUG)
+
     # setup discord logger
     discord_log = logging.getLogger("discord")
     discord_log.setLevel(logging.INFO)
@@ -85,21 +88,19 @@ class DBLogHandler(logging.Handler):
         self.logger = module_logger.getChild('DBLogHandler')
         super().__init__(level=level)
 
-    @property
-    def logging_stmt(self):
-        return self.bot.dbi.logging_stmts.get(self.log_name, None)
-
     def emit(self, record):
         record_id = next(get_id)
         asyncio.run_coroutine_threadsafe(
             self.submit_log(record_id, record), self.bot.loop)
 
     async def submit_log(self, log_id, record):
-        data = (log_id, record.created, record.name, record.levelname,
-                record.pathname, record.module, record.funcName,
-                record.lineno, record.message, record.exc_info)
+        data = dict(log_id=log_id, created=record.created,
+                    logger_name=record.name, level_name=record.levelname,
+                    file_path=record.pathname, module=record.module,
+                    func_name=record.funcName, line_no=record.lineno,
+                    message=record.message, traceback=record.exc_info)
         try:
-            await self.bot.dbi.table(self.log_name).insert(data)
+            await self.bot.dbi.table(self.log_name).insert(**data)
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
