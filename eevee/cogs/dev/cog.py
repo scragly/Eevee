@@ -149,6 +149,7 @@ class Dev:
     async def clear_console(self, ctx):
         """Clear the console"""
         os.system('cls')
+        await ctx.ok()
 
     @command(category="Developer")
     async def guild(self, ctx, *, guild: Guild):
