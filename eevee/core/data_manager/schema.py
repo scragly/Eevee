@@ -77,8 +77,8 @@ class StringColumn(Column):
         super().__init__(name, StringSQL(), **kwargs)
 
 class IntColumn(Column):
-    def __init__(self, name, **kwargs):
-        super().__init__(name, IntegerSQL(), **kwargs)
+    def __init__(self, name, big=False, small=False, **kwargs):
+        super().__init__(name, IntegerSQL(big=big, small=small), **kwargs)
 
 class BoolColumn(Column):
     def __init__(self, name, **kwargs):
@@ -106,13 +106,14 @@ class TableColumns:
 class Table:
     """Represents a database table."""
 
-    __slots__ = ('name', 'dbi', 'columns', 'current_filter')
+    __slots__ = ('name', 'dbi', 'columns', 'current_filter', 'new_columns')
 
     def __init__(self, name: str, dbi):
         self.name = name
         self.dbi = dbi
         self.current_filter = {}
         self.columns = TableColumns(self)
+        self.new_columns = []
 
     def __str__(self):
         return self.name
@@ -184,6 +185,10 @@ class Table:
     async def create(self, *columns, primaries=None):
         """Create table and return the object representing it."""
         sql = f"CREATE TABLE {self.name} ("
+        if not columns:
+            if not self.new_columns:
+                raise SchemaError("No columns for created table.")
+            columns = self.new_columns
         sql += ', '.join(col.to_sql for col in columns)
         if primaries:
             if isinstance(primaries, str):
