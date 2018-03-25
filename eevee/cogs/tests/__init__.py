@@ -1,3 +1,5 @@
+"""Tests Features Module"""
+
 from .cog import Tests
 
 def setup(bot):

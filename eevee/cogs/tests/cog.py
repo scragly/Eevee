@@ -1,81 +1,34 @@
 import re
 import asyncio
 import datetime
-import logging
 
 from collections import Counter
 
 import discord
-from discord.ext import commands
 from discord.ext.commands import EmojiConverter, BadArgument
 
-from eevee import command, checks, utils
+from eevee import command, checks, Cog
 from eevee.utils import make_embed
 
-from eevee.core.data_manager import schema
 
-from eevee.core.data_manager.dbi import DatabaseInterface
-
-class CogTable:
-
-    table_config = {
-        "name" : "base_default_table",
-        "columns" : {
-            "id" : {"cls" : schema.IDColumn},
-            "value" : {"cls" : schema.StringColumn}
-        },
-        "primaries" : ("id")
-    }
-
-    def __init__(self, bot):
-        self.dbi: DatabaseInterface = bot.dbi
-        self.bot = bot
-
-    def convert_columns(self, columns_dict=None):
-        columns = []
-        for k, v in columns_dict.items():
-            col_cls = v.pop('cls', schema.Column)
-            columns.append(col_cls(k, **v))
-        return columns
-
-    async def setup(self, table_name=None, columns: list = None, *, primaries=None):
-        table_name = table_name or self.table_config["name"]
-        table = self.dbi.table(table_name)
-        exists = table.exists()
-        if not exists:
-            columns = self.convert_columns(self.table_config["columns"])
-            primaries = primaries or self.table_config["primaries"]
-            table = await table.create(
-                self.dbi, table_name, columns, primaries=primaries)
-        return table
-
-
-class TestsCogTable(CogTable):
-    table_config = {
-        "name" : "tests_cog_table",
-        "columns" : {
-            "id" : {"cls" : schema.IDColumn},
-            "value" : {"cls" : schema.StringColumn}
-        },
-        "primaries" : ("id")
-    }
-
-class Tests:
+class Tests(Cog):
     """Test Features"""
 
-    def __init__(self, bot):
-        self.bot = bot
-        self._cog_table = None
-        self.log = logging.getLogger('eevee.cogs.tests.Tests')
-        self.log.warning('self.log')
-        bot.logger.warning('bot.logger')
-
     async def __local_check(self, ctx):
-        if not self._cog_table:
-            self._cog_table = await TestsCogTable(self.bot).setup()
+        if not self.cog_table:
+            pass
         owner = await checks.check_is_co_owner(ctx)
         enabled = await checks.check_cog_enabled(ctx)
         return all((owner, enabled))
+
+    @command()
+    async def name_test(self, ctx):
+        await ctx.send(__name__)
+
+    @command()
+    async def log_test(self, ctx, *, log_msg):
+        self.logger.error(log_msg)
+        await ctx.send(f'Sent the following log msg:\n{log_msg}')
 
     @command()
     async def thumbtest(self, ctx, *, url=None):
@@ -103,7 +56,7 @@ class Tests:
                          icon_url=None,
                          image=None,
                          thumbnail=None):
-        embed = utils.make_embed(
+        embed = make_embed(
             msg_type=msg_type, title=title, content=content, msg_colour=colour,
             guild=ctx.guild, icon=icon_url, image=image, thumbnail=thumbnail)
         await ctx.send(embed=embed)
@@ -282,8 +235,3 @@ class Tests:
         await ctx.setting('ModRole', role.id)
         await ctx.send(f'Set {role.name} as this guilds Mod Role.')
 
-    @command()
-    async def table_test(self, ctx):
-        cog_tables = CogTables(ctx.bot)
-        await cog_tables.setup()
-        await ctx.send('done')
