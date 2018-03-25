@@ -15,6 +15,8 @@ get_id = snowflake.create()
 
 LOGGERS = ('eevee_logs', 'discord_logs')
 
+module_logger = logging.getLogger('eevee.core.logger')
+
 def init_logger(bot, debug_flag=False):
 
     # setup discord logger
@@ -65,6 +67,7 @@ def init_logger(bot, debug_flag=False):
 
     # create db handler
     eevee_db = DBLogHandler(bot, 'eevee_logs')
+    bot.log_eevee_db = eevee_db
     eevee_log.addHandler(eevee_db)
     discord_db = DBLogHandler(bot, 'discord_logs')
     discord_log.addHandler(discord_db)
@@ -78,9 +81,8 @@ class DBLogHandler(logging.Handler):
         if log_name not in LOGGERS:
             raise RuntimeError(f'Unknown Log Name: {log_name}')
         self.bot = bot
-        self.loop = bot.loop
         self.log_name = log_name
-        self._backlog = {}
+        self.logger = module_logger.getChild('DBLogHandler')
         super().__init__(level=level)
 
     @property
@@ -89,40 +91,35 @@ class DBLogHandler(logging.Handler):
 
     def emit(self, record):
         record_id = next(get_id)
-        if not self.logging_stmt:
-            self._backlog[record_id] = record
-        else:
-            if self._backlog:
-                self._process_backlog()
-
         asyncio.run_coroutine_threadsafe(
-            self.submit_log(record_id, record), self.loop)
-
-    def _process_backlog(self):
-        for k, v in self._backlog.items():
-            asyncio.run_coroutine_threadsafe(self.submit_log(k, v), self.loop)
+            self.submit_log(record_id, record), self.bot.loop)
 
     async def submit_log(self, log_id, record):
-        values = (log_id, record.created, record.name, record.levelname,
-                  record.pathname, record.module, record.funcName,
-                  record.lineno, record.message, record.exc_info)
-        await self.logging_stmt.fetch(*values)
+        data = (log_id, record.created, record.name, record.levelname,
+                record.pathname, record.module, record.funcName,
+                record.lineno, record.message, record.exc_info)
+        try:
+            await self.bot.dbi.table(self.log_name).insert(data)
+        except asyncpg.PostgresError as e:
+            self.logger.exception(type(e).__name__, exc_info=e)
 
 class ActivityLogging:
     def __init__(self, bot):
         self.bot = bot
-        self.logger = logging.getLogger('eevee.core.logger.ActivityLogging')
+        self.logger = module_logger.getChild('ActivityLogging')
 
     async def on_message(self, msg):
         sent = int(msg.created_at.replace(tzinfo=timezone.utc).timestamp())
         guild_id = msg.guild.id if msg.guild else None
         embeds = [json.dumps(e.to_dict()) for e in msg.embeds]
         attachments = [a.url for a in msg.attachments]
-        data = (msg.id, sent, False, False, msg.author.id,
-                msg.channel.id, guild_id, msg.content, msg.clean_content,
-                embeds, msg.webhook_id, attachments)
+        data = dict(message_id=msg.id, sent=sent, is_edit=False, deleted=False,
+                    author_id=msg.author.id, channel_id=msg.channel.id,
+                    guild_id=guild_id, content=msg.content,
+                    clean_content=msg.clean_content, embeds=embeds,
+                    webhook_id=msg.webhook_id, attachments=attachments)
         try:
-            await self.bot.dbi.table('discord_messages').insert(data)
+            await self.bot.dbi.table('discord_messages').insert(**data)
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
@@ -131,12 +128,15 @@ class ActivityLogging:
         sent = int(created.replace(tzinfo=timezone.utc).timestamp())
         guild = ctx.guild.id if ctx.guild else None
         cog = ctx.cog.__class__.__name__ if ctx.cog else None
-        data = (ctx.message.id, sent, ctx.author.id, ctx.channel.id, guild,
-                ctx.prefix, ctx.command.name, ctx.invoked_with,
-                ctx.invoked_subcommand, ctx.subcommand_passed,
-                ctx.command_failed, cog)
+        data = dict(message_id=ctx.message.id, sent=sent,
+                    author_id=ctx.author.id, channel_id=ctx.channel.id,
+                    guild_id=guild, prefix=ctx.prefix,
+                    command=ctx.command.name, invoked_with=ctx.invoked_with,
+                    invoked_subcommand=ctx.invoked_subcommand,
+                    subcommand_passed=ctx.subcommand_passed,
+                    command_failed=ctx.command_failed, cog=cog)
         try:
-            await self.bot.dbi.table('command_log').insert(data)
+            await self.bot.dbi.table('command_log').insert(**data)
         except asyncpg.UniqueViolationError:
             pass
         except asyncpg.PostgresError as e:
@@ -155,9 +155,11 @@ class ActivityLogging:
             return
         time_value = int(time.time())
         guild = after.guild.id if after.guild else None
-        data = (after.id, time_value, status_update, status_from, guild, name_update)
+        data = dict(member_id=after.id, time=time_value,
+                    status=status_update, from_status=status_from,
+                    guild_id=guild, display_name=name_update)
         try:
-            await self.bot.dbi.table('member_activity').insert(data)
+            await self.bot.dbi.table('member_activity').insert(**data)
         except asyncpg.UniqueViolationError:
             pass
         except asyncpg.PostgresError as e:
