@@ -3,7 +3,7 @@ import re
 import discord
 from discord.ext import commands
 
-from eevee import command, checks
+from eevee import command, checks, Cog
 from eevee.utils import make_embed
 
 def has_no_team():
@@ -16,11 +16,11 @@ def has_no_team():
         return True
     return commands.check(check)
 
-class Teams:
+class Teams(Cog):
     """Team Management"""
 
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.team_list = bot.config.team_list
         self.team_colours = bot.config.team_colours
         self.team_emoji = bot.config.team_emoji
