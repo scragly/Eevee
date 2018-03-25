@@ -4,12 +4,9 @@ import asyncpg
 
 from discord.ext.commands import when_mentioned_or
 
-from eevee.core.logger import LOGGERS
 from .schema import Table
 from .tables import core_table_sqls
 from . import types
-
-module_logger = logging.getLogger('eevee.core.dbi')
 
 class DatabaseInterface:
     """Get, Create and Edit data in the connected database."""
@@ -28,8 +25,6 @@ class DatabaseInterface:
         self.prefix_stmt = None
         self.settings_conn = None
         self.settings_stmt = None
-        self.logging_conn = None
-        self.logging_stmts = {}
         self.types = types
         self.log = logging.getLogger('eevee.core.dbi.DatabaseInterface')
 
@@ -37,10 +32,12 @@ class DatabaseInterface:
         if loop:
             self.loop = loop
         self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
-        await self.first_start_check()
         await self.prepare()
 
     async def prepare(self):
+        # ensure tables exists
+        await self.core_tables_exist()
+
         # guild prefix callable statement
         self.prefix_conn = await self.pool.acquire()
         prefix_sql = 'SELECT prefix FROM prefix WHERE guild_id=$1;'
@@ -52,15 +49,7 @@ class DatabaseInterface:
                         'WHERE guild_id=$1 AND config_name=$2;')
         self.settings_stmt = await self.settings_conn.prepare(settings_sql)
 
-        # logging statement
-        self.logging_conn = await self.pool.acquire()
-        log_sql = ('INSERT INTO {log_table} '
-                   'VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9);')
-        for log in LOGGERS:
-            _sql = log_sql.format(log_table=log)
-            self.logging_stmts[log] = await self.settings_conn.prepare(_sql)
-
-    async def first_start_check(self):
+    async def core_tables_exist(self):
         core_sql = core_table_sqls()
         for k, v in core_sql.items():
             table_exists = await self.table(k).exists()
@@ -70,7 +59,7 @@ class DatabaseInterface:
                 self.log.warning(f'Core table {k} created.')
 
     async def stop(self):
-        conns = (self.prefix_conn, self.settings_conn, self.logging_conn)
+        conns = (self.prefix_conn, self.settings_conn)
         for c in conns:
             if c:
                 await self.pool.release(c)
@@ -120,75 +109,91 @@ class DatabaseInterface:
                         result.append(rcrd)
             return result
 
-    async def get(self, table_name: str, col_name: str, **filters):
-        """Get all records from filtered table."""
-        sql = f"SELECT {col_name} FROM {table_name}"
+    async def get(self, table: str, columns, **filters):
+        """Get data from table based on provided filters.
+
+        Parameters
+        -----------
+        table: :class:`str`
+            Name of the database table
+        columns: :class:`str` or :class:`list`, optional
+            The columns of data that will be returned
+        **filters:
+            Remaining keyword arguments will act as a filter for the data
+                column_name = record_value: :class:`str`
+        """
+        if isinstance(columns, (list, set, tuple)):
+            columns = ', '.join(columns)
+        sql = f"SELECT {columns} FROM {table}"
         if filters:
             filter_list = []
             for i in range(len(filters)):
                 filter_list.append(f"{[*filters.keys()][i]}=${i+1}")
             sql += ' WHERE ' + ' AND '.join(filter_list)
-        return await self.execute_query(sql, *filters.values())
+        rcrds = await self.execute_query(sql, *filters.values())
+        return [dict(r) for r in rcrds]
 
-    async def get_first(self, table_name: str, col_name: str = '*', **filters):
+    async def get_first(self, table: str, columns='*', **filters):
         """Get first record of queried data from table"""
-        rcrds = await self.get(table_name, col_name, **filters)
+        rcrds = await self.get(table, columns, **filters)
         return rcrds[0] if rcrds else None
 
-    async def get_value(self, table_name: str, col_name: str, **filters):
+    async def get_value(self, table: str, column: str, **filters):
         """Get first record value of queried data from table"""
-        rcrd = await self.get_first(table_name, col_name, **filters)
-        return rcrd[0] if rcrd else None
+        rcrd = await self.get_first(table, column, **filters)
+        return list(rcrd.values())[0] if rcrd else None
 
-    async def get_values(self, table_name: str, col_name: str = '*', **filters):
+    async def get_values(self, table: str, column: str = '*', **filters):
         """Get first record value of queried data from table"""
-        rcrds = await self.get(table_name, col_name, **filters)
-        return [r[0] for r in rcrds] if rcrds else None
+        rcrds = await self.get(table, column, **filters)
+        return [list(r.values())[0] for r in rcrds] if rcrds else None
 
-    async def insert(self, table_name: str, columns: list, *values):
+    async def insert(self, table: str, **data):
         """Add records to a table."""
-        col_name = ', '.join(columns)
-        col_idx = ', '.join([f'${i+1}' for i in range(len(columns))])
-        sql = f"INSERT INTO {table_name} ({col_name}) VALUES ({col_idx})"
-        return await self.execute_transaction(sql, *values)
+        column = ', '.join(data.keys())
+        col_idx = ', '.join([f'${i+1}' for i in range(len(data))])
+        sql = f"INSERT INTO {table} ({column}) VALUES ({col_idx})"
+        return await self.execute_transaction(sql, *data.values())
 
-    async def upsert(self, table_name: str, primary, columns: list, *values):
+    async def upsert(self, table: str, primary=None, **data):
         """Add or update records of a table."""
-        col_names = ', '.join(columns)
-        col_idx = ', '.join([f'${i+1}' for i in range(len(columns))])
-        sql = f"INSERT INTO {table_name} ({col_names}) VALUES ({col_idx})"
-        primary = ', '.join(primary) if isinstance(
-            primary, (list, tuple)) else primary
-        sql += f" ON CONFLICT ({primary}) DO UPDATE SET"
-        excluded = [f' {c} = excluded.{c}' for c in columns]
+        column = ', '.join(data.keys())
+        col_idx = ', '.join([f'${i+1}' for i in range(len(data))])
+        sql = f"INSERT INTO {table} ({column}) VALUES ({col_idx})"
+        if not primary:
+            primary = await self.get_table_primary(table)
+        if isinstance(primary, (list, tuple)):
+            primary = ', '.join(primary)
+        sql += f" ON CONFLICT ({primary}) DO UPDATE SET "
+        excluded = [f'{c} = excluded.{c}' for c in data]
         sql += f"{', '.join(excluded)};"
-        return await self.execute_transaction(sql, *values)
+        return await self.execute_transaction(sql, *data.values())
 
-    async def delete(self, table_name: str, **filters):
+    async def delete(self, table: str, **filters):
         """Deletes records from table."""
         filter_list = []
         for i in range(len(filters)):
             filter_list.append(f"{[*filters.keys()][i]}=${i+1}")
-        sql = f"DELETE FROM {table_name} WHERE {' AND '.join(filter_list)}"
+        sql = f"DELETE FROM {table} WHERE {' AND '.join(filter_list)}"
         return await self.execute_transaction(sql, *filters.values())
 
     async def create_table(self, name, columns: list, *, primaries=None):
         """Create table."""
-        return await Table.create(self, name, columns, primaries=primaries)
+        return await Table(self, name).create(columns, primaries=primaries)
 
     async def delete_table(self, name):
         """Delete table."""
         return await Table.drop(self, name)
 
-    async def get_table_columns(self, table_name):
+    async def get_table_columns(self, table):
         """Get column from table."""
         return await self.get_values('information_schema.columns',
-                                     'column_name', TABLE_NAME=table_name)
+                                     'column_name', TABLE_NAME=table)
 
-    async def get_table_primary(self, table_name):
+    async def get_table_primary(self, table):
         """Get column from table."""
         return await self.get_values('information_schema.key_column_usage',
-                                     'column_name', TABLE_NAME=table_name)
+                                     'column_name', TABLE_NAME=table)
 
-    def table(self, table_name):
-        return Table(table_name, self)
+    def table(self, name):
+        return Table(name, self)

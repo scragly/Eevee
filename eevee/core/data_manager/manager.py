@@ -1,4 +1,4 @@
-from . import guild
+from .guild import GuildDM
 
 class DataManager:
     """Query and data handling"""
@@ -8,4 +8,4 @@ class DataManager:
 
     def guild(self, guild_id):
         """Guild Data Manager"""
-        return guild.GuildDM(self._db, guild_id)
+        return GuildDM(self._db, guild_id)

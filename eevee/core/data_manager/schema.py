@@ -55,8 +55,11 @@ class Column:
         return ' '.join(sql)
 
     async def set(self, value):
-        data = {self.name:value}
-        return await self.table.upsert(data)
+        if not self.table:
+            return None
+        data = dict(self.table.current_filter)
+        data[self.name] = value
+        return await self.table.upsert(**data)
 
     async def get(self, **filters):
         return await self.table.get(columns=self.name, **filters)
@@ -94,80 +97,78 @@ class IntervalColumn(Column):
     def __init__(self, name, field=False, **kwargs):
         super().__init__(name, IntervalSQL(field), **kwargs)
 
+class TableColumns:
+    def __init__(self, table):
+        self._table = table
+    def __getattr__(self, name):
+        return Column(name, table=self._table)
+
 class Table:
     """Represents a database table."""
 
-    __slots__ = ('name', 'dbi')
+    __slots__ = ('name', 'dbi', 'columns', 'current_filter')
 
     def __init__(self, name: str, dbi):
         self.name = name
         self.dbi = dbi
+        self.current_filter = {}
+        self.columns = TableColumns(self)
 
     def __str__(self):
         return self.name
 
-    def __getattr__(self, name, **filters):
-        return Column(name, table=self)
+    def where(self, **filters):
+        if filters:
+            self.current_filter = filters
+            return self
+        return self.current_filter
+
+    def clear_filter(self):
+        self.current_filter = {}
 
     async def _get_columns(self):
-        return await self.dbi.get_table_columns(self, self.name)
+        return await self.dbi.get_table_columns(self.name)
 
     async def _get_primary(self):
-        return self.dbi.get_table_primary(self, self.name)
+        return self.dbi.get_table_primary(self.name)
 
-    async def get(self, columns=None, **filters):
+    async def get(self, columns='*', **filters):
         """Returns values from columns of filtered table."""
-        if not columns:
-            return await self.dbi.get(self.name, '*', **filters)
-        elif isinstance(columns, (list, set, tuple)):
-            if len(columns) > 1:
-                multi = True
-            columns = ', '.join(columns)
-        return await self.dbi.get(self.name, str(columns), **filters)
+        filters = dict(self.current_filter, **filters)
+        return await self.dbi.get(self.name, columns, **filters)
 
     async def get_values(self, column='*', **filters):
         """Returns list of values in a column from filtered table."""
-        return await self.dbi.get_values(self.name, str(column), **filters)
+        filters = dict(self.current_filter, **filters)
+        return await self.dbi.get_values(self.name, column, **filters)
 
     async def get_value(self, column, **filters):
         """Returns a single value from a column from filtered table."""
-        return await self.dbi.get_value(self.name, str(column), **filters)
+        filters = dict(self.current_filter, **filters)
+        return await self.dbi.get_value(self.name, column, **filters)
 
-    async def get_first(self, column='*', **filters):
+    async def get_first(self, columns='*', **filters):
         """Returns first row from filtered table."""
-        return await self.dbi.get_first(self.name, str(column), **filters)
+        filters = dict(self.current_filter, **filters)
+        return await self.dbi.get_first(self.name, columns, **filters)
 
-    async def insert(self, data):
+    async def insert(self, **data):
         """Add record to current table."""
-        if isinstance(data, dict):
-            return await self.dbi.insert(
-                self, self.name, [*data.keys()], *data.values())
-        elif isinstance(data, (set, list, tuple)):
-            columns = await self.dbi.get_table_columns(self.name)
-            return await self.dbi.insert(self.name, columns, *data)
-        else:
-            raise SchemaError(
-                'Data to be added must be dict, list, tuple or set.')
+        data = dict(self.current_filter, **data)
+        return await self.dbi.insert(self.name, **data)
 
-    async def upsert(self, data):
+    async def upsert(self, **data):
         """Add record to current table."""
-        if isinstance(data, dict):
-            return await self.dbi.upsert(
-                self, self.name, [*data.keys()], *data.values())
-        elif isinstance(data, (set, list, tuple)):
-            keys = await self.dbi.get_table_primary(self.name)
-            columns = await self.dbi.get_table_columns(self.name)
-            return await self.dbi.upsert(self.name, keys, columns, *data)
-        else:
-            raise SchemaError(
-                'Data to be added must be dict, list, tuple or set.')
+        data = dict(self.current_filter, **data)
+        return await self.dbi.upsert(self.name, **data)
 
     async def delete(self, **filters):
         """Deletes records from the current table."""
+        filters = dict(self.current_filter, **filters)
         return await self.dbi.delete(self.name, **filters)
 
     @classmethod
-    def test_create(cls, name, columns: list, *, primaries=None):
+    def test_create(cls, name, *columns, primaries=None):
         """Generate SQL for creating the table."""
         sql = f"CREATE TABLE {name} ("
         sql += ', '.join(col.to_sql for col in columns)
@@ -180,24 +181,23 @@ class Table:
         sql += ")"
         return sql
 
-    @classmethod
-    async def create(cls, dbi, name, columns: list, *, primaries=None):
+    async def create(self, *columns, primaries=None):
         """Create table and return the object representing it."""
-        sql = f"CREATE TABLE {name} ("
+        sql = f"CREATE TABLE {self.name} ("
         sql += ', '.join(col.to_sql for col in columns)
         if primaries:
             if isinstance(primaries, str):
-                sql += f", CONSTRAINT {name}_pkey PRIMARY KEY ({primaries})"
+                sql += f", CONSTRAINT {self.name}_pkey PRIMARY KEY ({primaries})"
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (f", CONSTRAINT {name}_pkey"
+                sql += (f", CONSTRAINT {self.name}_pkey"
                         f" PRIMARY KEY ({', '.join(primaries)}))")
         sql += ")"
         try:
-            await dbi.execute_transaction(sql)
+            await self.dbi.execute_transaction(sql)
         except PostgresError:
             raise
         else:
-            return cls(name, dbi)
+            return self
 
     async def exists(self):
         """Create table and return the object representing it."""
