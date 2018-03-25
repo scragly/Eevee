@@ -12,4 +12,5 @@ __maintainer__ = "scragly"
 __status__ = "Development"
 
 from eevee.core.bot import command, group
+from eevee.core.cog_base import Cog
 from eevee.core import checks, errors
