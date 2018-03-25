@@ -39,13 +39,14 @@ class Multi(commands.Converter):
             f"{type_names}")
 
 class Guild:
-    """Convert string to Command object from Bot.
+    """Convert Guild object by ID or name.
 
     Returns
     --------
     :class:`discord.Guild`
     """
-    async def convert(self, ctx, arg):
+    @classmethod
+    async def convert(cls, ctx, arg):
         guild = None
         if arg.isdigit():
             guild = ctx.bot.get_guild(int(arg))
