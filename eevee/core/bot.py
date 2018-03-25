@@ -1,6 +1,7 @@
 import itertools
 import os
 import platform
+import logging
 from collections import Counter
 from datetime import datetime
 
@@ -19,6 +20,39 @@ from eevee.utils import ExitCodes, pagination, fuzzymatch
 
 
 class Eevee(commands.AutoShardedBot):
+    """Represents the bot.
+
+    Bases: :class:`discord.ext.commands.AutoShardedBot`.
+
+    The ``AutoShardedBot`` subclass provides the benefits of
+    :class:`discord.ext.commands.Bot` while handling the complications
+    of sharding.
+
+    Parameters
+    -----------
+    description: :class:`str`
+        A short description of the bot.
+    launcher: :class:`bool`
+        Flag indicating if the bot was started via launcher.
+    debug: :class:`bool`
+        Flag indicating if the bot was started in debug mode via CLI arg.
+
+    Attributes
+    -----------
+    command_prefix: :obj:`callable`
+        Holds the Prefix Manager method for determining the guild prefix for
+        commands.
+    description : :class:`str`
+        The content prefixed into the default help message.
+    owner_id: :class:`int`
+        The user ID of the bot owner to enable owner only commands for them.
+    co_owners: :class:`list`
+        List of co-owner user IDs to enable co-owner only commands for them.
+    dbi: :class:`eevee.core.data_manager.dbi.DatabaseInterface`
+        The interface for interacting directly with the database.
+    data: :py:class:`.DataManager`
+        The interface for getting and updating common data in the database.
+    """
 
     def __init__(self, **kwargs):
         self.default_prefix = config.bot_prefix
@@ -45,11 +79,23 @@ class Eevee(commands.AutoShardedBot):
         super().__init__(**kwargs)
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.loop.run_until_complete(self._db_connect())
+        self.logger = logging.getLogger('eevee.Eevee')
 
     async def _db_connect(self):
         await self.dbi.start(loop=self.loop)
 
     async def send_cmd_help(self, ctx, **kwargs):
+        """Function to invoke help output for a command.
+
+        Parameters
+        -----------
+        ctx: :class:`discord.ext.commands.Context`
+            Context object from the originally invoked command.
+        per_page: :class:`int`
+            Number of entries in the help embed page. 12 is default.
+        title: :class:`str`
+            Title of the embed message.
+        """
         try:
             if ctx.invoked_subcommand:
                 kwargs['title'] = kwargs.get('title', 'Sub-Command Help')
@@ -147,6 +193,11 @@ class Eevee(commands.AutoShardedBot):
         return category if category in categories else None
 
     async def process_commands(self, message):
+        """Processes commands that are registed with the bot and it's groups.
+
+        Without this being run in the main `on_message` event, commands will
+        not be processed.
+        """
         if message.author.bot:
             return
         ctx = await self.get_context(message, cls=Context)
@@ -209,8 +260,7 @@ class Eevee(commands.AutoShardedBot):
         self.counter["processed_commands"] += 1
 
     async def on_connect(self):
-        if hasattr(self, 'launch_time'):
-            print("Reconnected.")
+        print("Connected.")
         await self.change_presence(status=discord.Status.idle)
 
     # async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -249,23 +299,22 @@ class Eevee(commands.AutoShardedBot):
 def command(*args, **kwargs):
     """A decorator that adds a function as a bot command.
 
-    Attributes
+    For the parameters, only `name` can be positional. The rest are
+    keyword-only.
+
+    Parameters
     -----------
     name: :class:`str`
         The name of the command.
-    help: :class:`str`
-        The details in command help.
     aliases: :class:`list`
         The list of other command names this will work with.
     enabled: :class:`bool`
-        If ``False`` the command is disabled and will raise
+        If `False` the command is disabled and will raise
         :exc:`discord.ext.commands.DisabledCommand`.
-    description: :class:`str`
-        An added message placed before help text in command help.
     hidden: :class:`bool`
-        If ``True`` the command won't show in help command lists.
+        If `True` the command won't show in help command lists.
     ignore_extra: :class:`bool`
-        If ``False`` any extra arguments raise
+        If `False` any extra arguments raise
         :exc:`discord.ext.commands.TooManyArguments`.
     """
     def decorator(func):
@@ -280,23 +329,22 @@ def group(*args, **kwargs):
 
     These allow for easy subcommands using `funcname.command()`.
 
-    Attributes
+    For the parameters, only `name` can be positional. The rest are
+    keyword-only.
+
+    Parameters
     -----------
     name: :class:`str`
         The name of the command.
-    help: :class:`str`
-        The details in command help.
     aliases: :class:`list`
         The list of other command names this will work with.
     enabled: :class:`bool`
-        If ``False`` the command is disabled and will raise
+        If `False` the command is disabled and will raise
         :exc:`discord.ext.commands.DisabledCommand`.
-    description: :class:`str`
-        An added message placed before help text in command help.
     hidden: :class:`bool`
-        If ``True`` the command won't show in help command lists.
+        If `True` the command won't show in help command lists.
     ignore_extra: :class:`bool`
-        If ``False`` any extra arguments raise
+        If `False` any extra arguments raise
         :exc:`discord.ext.commands.TooManyArguments`.
     invoke_without_command: :class:`bool`
         If ``True``, invoked subcommands will skip the group commands
