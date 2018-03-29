@@ -74,7 +74,7 @@ class GetTools:
         if name:
             return self.get(guild.text_channels, name=name)
 
-    def id(self, id=None, name=None, guild=None):
+    def voice_channel(self, id=None, name=None, guild=None):
         guild = self.ctx.guild
         if not guild:
             return None
