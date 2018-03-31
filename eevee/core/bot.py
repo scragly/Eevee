@@ -64,6 +64,7 @@ class Eevee(commands.AutoShardedBot):
         self.launch_time = None
         self.core_dir = os.path.dirname(os.path.realpath(__file__))
         self.data_dir = os.path.join(self.core_dir, "..", "data")
+        self.ext_dir = os.path.join(self.core_dir, "..", "cogs")
         self.config = config
         self.token = config.bot_token
         self.req_perms = discord.Permissions(config.bot_permissions)
