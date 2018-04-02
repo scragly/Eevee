@@ -4,9 +4,9 @@ import asyncpg
 
 from discord.ext.commands import when_mentioned_or
 
-from .schema import Table
+from .schema import Table, TableNew
 from .tables import core_table_sqls
-from . import types
+from . import sqltypes
 
 class DatabaseInterface:
     """Get, Create and Edit data in the connected database."""
@@ -25,7 +25,7 @@ class DatabaseInterface:
         self.prefix_stmt = None
         self.settings_conn = None
         self.settings_stmt = None
-        self.types = types
+        self.types = sqltypes
         self.log = logging.getLogger('eevee.core.dbi.DatabaseInterface')
 
     async def start(self, loop=None):
@@ -197,3 +197,9 @@ class DatabaseInterface:
 
     def table(self, name):
         return Table(name, self)
+
+    def tablenew(self, name):
+        return TableNew(name, self)
+
+    def query(self, table_name):
+        return TableNew(table_name, self).query
