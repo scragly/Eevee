@@ -34,6 +34,10 @@ class DatabaseInterface:
         self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
         await self.prepare()
 
+    async def recreate_pool(self):
+        self.log.warning(f'Re-creating closed database pool.')
+        self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
+
     async def prepare(self):
         # ensure tables exists
         await self.core_tables_exist()
@@ -86,28 +90,36 @@ class DatabaseInterface:
 
     async def execute_query(self, query, *query_args):
         result = []
-        async with self.pool.acquire() as conn:
-            stmt = await conn.prepare(query)
-            rcrds = await stmt.fetch(*query_args)
-            for rcrd in rcrds:
-                result.append(rcrd)
-        return result
+        try:
+            async with self.pool.acquire() as conn:
+                stmt = await conn.prepare(query)
+                rcrds = await stmt.fetch(*query_args)
+                for rcrd in rcrds:
+                    result.append(rcrd)
+            return result
+        except asyncpg.exceptions.InterfaceError:
+            await self.recreate_pool()
+            return await self.execute_query(query, *query_args)
 
     async def execute_transaction(self, query, *query_args):
         result = []
-        async with self.pool.acquire() as conn:
-            stmt = await conn.prepare(query)
+        try:
+            async with self.pool.acquire() as conn:
+                stmt = await conn.prepare(query)
 
-            if any(isinstance(x, (set, tuple)) for x in query_args):
-                async with conn.transaction():
-                    for query_arg in query_args:
-                        async for rcrd in stmt.cursor(*query_arg):
+                if any(isinstance(x, (set, tuple)) for x in query_args):
+                    async with conn.transaction():
+                        for query_arg in query_args:
+                            async for rcrd in stmt.cursor(*query_arg):
+                                result.append(rcrd)
+                else:
+                    async with conn.transaction():
+                        async for rcrd in stmt.cursor(*query_args):
                             result.append(rcrd)
-            else:
-                async with conn.transaction():
-                    async for rcrd in stmt.cursor(*query_args):
-                        result.append(rcrd)
-            return result
+                return result
+        except asyncpg.exceptions.InterfaceError:
+            await self.recreate_pool()
+            return await self.execute_query(query, *query_args)
 
     async def get(self, table: str, columns, **filters):
         """Get data from table based on provided filters.
@@ -183,7 +195,7 @@ class DatabaseInterface:
 
     async def delete_table(self, name):
         """Delete table."""
-        return await Table.drop(self, name)
+        return await Table(name).drop()
 
     async def get_table_columns(self, table):
         """Get column from table."""
