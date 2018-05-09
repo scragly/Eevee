@@ -521,7 +521,9 @@ class SQLConditions:
 
     def add_conditions(self, *conditions, **kwarg_conditions):
         if kwarg_conditions:
-            self.process_dict_conditions(kwarg_conditions)
+            k_conds = self.process_dict_conditions(kwarg_conditions)
+            k_conds.extend(conditions)
+            conditions = k_conds
         where, having = self.sort_conditions(*conditions)
         self.where_conditions.extend(where)
         self.having_conditions.extend(having)
@@ -531,8 +533,12 @@ class SQLConditions:
         self.having_conditions.extend(conditions)
         return self._parent
 
-    def or_(self, *conditions, **dict_cond):
-        return self.add_conditions()
+    def or_(self, *conditions, **kwarg_conditions):
+        if kwarg_conditions:
+            k_conds = self.process_dict_conditions(kwarg_conditions)
+            k_conds.extend(conditions)
+            conditions = tuple(k_conds)
+        return self.add_conditions(conditions)
 
 class Query:
     """Builds a database query."""

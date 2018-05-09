@@ -181,6 +181,15 @@ class DatabaseInterface:
         sql += f"{', '.join(excluded)};"
         return await self.execute_transaction(sql, *data.values())
 
+    async def update(self, table: str, primary=None, **data):
+        """Updates records of a table."""
+        sql = [f"UPDATE {table} SET"]
+        sql.append(', '.join(f'{col} = ${i}' for i, col in enumerate(data, 1)))
+        primary = primary or await self.get_table_primary(table)
+        if isinstance(primary, (list, tuple)):
+            primary = ', '.join(primary)
+        return await self.execute_transaction(' '.join(sql), *data.values())
+
     async def delete(self, table: str, **filters):
         """Deletes records from table."""
         filter_list = []
@@ -195,7 +204,7 @@ class DatabaseInterface:
 
     async def delete_table(self, name):
         """Delete table."""
-        return await Table(name).drop()
+        return await Table.drop(self, name)
 
     async def get_table_columns(self, table):
         """Get column from table."""
