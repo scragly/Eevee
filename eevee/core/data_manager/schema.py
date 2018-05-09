@@ -1,3 +1,5 @@
+from more_itertools import partition
+
 from .errors import PostgresError, SchemaError, ResponseError, QueryError
 from .sqltypes import (BooleanSQL, DatetimeSQL, DecimalSQL, IntegerSQL,
                        IntervalSQL, SQLType, StringSQL)
@@ -267,12 +269,6 @@ class IntervalColumn(Column):
     def __init__(self, name, field=False, **kwargs):
         super().__init__(name, IntervalSQL(field), **kwargs)
 
-class TableColumns:
-    def __init__(self, table):
-        self._table = table
-    def __getattr__(self, name):
-        return Column(name, table=self._table)
-
 class Table:
     """Represents a database table."""
 
@@ -282,7 +278,7 @@ class Table:
         self.name = name
         self.dbi = dbi
         self.current_filter = {}
-        self.columns = TableColumns(self)
+        self.columns = Column(name, table=self)
         self.new_columns = []
 
     def __str__(self):
@@ -329,6 +325,11 @@ class Table:
         return await self.dbi.insert(self.name, **data)
 
     async def upsert(self, **data):
+        """Add record to current table."""
+        data = dict(self.current_filter, **data)
+        return await self.dbi.upsert(self.name, **data)
+
+    async def update(self, **data):
         """Add record to current table."""
         data = dict(self.current_filter, **data)
         return await self.dbi.upsert(self.name, **data)
@@ -384,49 +385,51 @@ class Table:
         else:
             return bool(list(result[0])[0])
 
-    @classmethod
     async def drop(cls, dbi, name):
         """Drop table from database."""
         sql = f"DROP TABLE {name}"
         return await dbi.execute_transaction(sql)
 
+class TableColumns:
+    """Inteface to get and return table columns."""
+    def __init__(self, table):
+        self._table = table
+        self._dbi = table.dbi
+
+    def get_column(self, name):
+        return Column(name, table=self._table)
+
+    async def get_columns(self):
+        metatable = self._dbi.tablenew('information_schema.columns')
+        metatable.query('column_name')
+        metatable.query.where(TABLE_NAME=self._table.name)
+        return await metatable.query.get_values()
+
+    async def get_primary(self):
+        kcu = self._dbi.tablenew('information_schema.key_column_usage')
+        query = kcu.query('column_name').where(TABLE_NAME=self._table.name)
+        return await query.get_values()
+
+
 class TableNew:
     """Represents a database table."""
 
-    __slots__ = ('name', 'dbi', 'columns', '_filters', 'new_columns',
+    __slots__ = ('name', 'dbi', 'columns', 'where', 'new_columns',
                  'query')
 
     def __init__(self, name: str, dbi):
         self.name = name
         self.dbi = dbi
-        self._filters = {}
-        self.columns = TableColumns(self)
+        self.where = SQLConditions(parent=self)
+        self.columns = TableColumns(table=self)
         self.new_columns = []
         self.query = Query(dbi, self.name)
 
     def __str__(self):
         return self.name
 
-    async def _get_columns(self):
-        return await self.dbi.get_table_columns(self.name)
-
-    async def _get_primary(self):
-        return self.dbi.get_table_primary(self.name)
-
-    async def insert(self, **data):
-        """Add record to current table."""
-        data = dict(self._filters, **data)
-        return await self.dbi.insert(self.name, **data)
-
-    async def upsert(self, **data):
-        """Add record to current table."""
-        data = dict(self._filters, **data)
-        return await self.dbi.upsert(self.name, **data)
-
-    async def delete(self, **filters):
-        """Deletes records from the current table."""
-        filters = dict(self._filters, **filters)
-        return await self.dbi.delete(self.name, **filters)
+    def __getitem__(self, key):
+        return self.columns.get_column(key)
 
     @classmethod
     def create_sql(cls, name, *columns, primaries=None):
@@ -482,32 +485,60 @@ class TableNew:
 
 
 class SQLConditions:
-    def __init__(self, query=None, having=False):
+    def __init__(self, parent=None, having=False):
         self.having = having
-        self.query = query
-        if having:
-            self.add_cond = query.add_having
-        else:
-            self.add_cond = query.add_conditions
+        self._parent = parent
+        self.where_conditions = []
+        self.having_conditions = []
+        self.add = self.add_having if having else self.add_conditions
 
-    def and_(self, *conditions):
-        self.add_cond(*conditions)
-        return self.query
+    def clear(self):
+        self.where_conditions = []
+        self.having_conditions = []
+        return self
 
-    __call__ = and_
+    def sort_conditions(self, *conditions, allow_having=True):
+        having_list = []
+        where_list = []
+        not_comps, comps = partition(
+            lambda c: isinstance(c, SQLComparison), conditions)
+        where, having = partition(lambda c: c.aggregate, comps)
+        if not allow_having and having:
+            raise SchemaError("'HAVING' can't be an 'OR' condition.")
+        where_list.extend(where)
+        having_list.extend(having)
+        for c in not_comps:
+            where_list.append(self.sort_conditions(*c)[0])
+        if allow_having:
+            return (tuple(where_list), tuple(having_list))
+        return tuple(where_list)
 
-    def or_(self, *conditions):
-        self.add_cond(conditions)
-        return self.query
+    @staticmethod
+    def process_dict_conditions(conditions):
+        eq = SQLOperator.eq()
+        c_list = [SQLComparison(eq, None, k, v) for k, v in conditions.items()]
+        return c_list
 
+    def add_conditions(self, *conditions, **kwarg_conditions):
+        if kwarg_conditions:
+            self.process_dict_conditions(kwarg_conditions)
+        where, having = self.sort_conditions(*conditions)
+        self.where_conditions.extend(where)
+        self.having_conditions.extend(having)
+        return self._parent
+
+    def add_having(self, *conditions):
+        self.having_conditions.extend(conditions)
+        return self._parent
+
+    def or_(self, *conditions, **dict_cond):
+        return self.add_conditions()
 
 class Query:
     """Builds a database query."""
     def __init__(self, dbi, table=None):
         self._dbi = dbi
         self._select = []
-        self._conditions = tuple()
-        self._having = tuple()
         self._distinct = False
         self._group_by = []
         self._order_by = []
@@ -515,16 +546,17 @@ class Query:
         self._from = (table,) if table else set()
         self._limit = None
         self._offset = None
-        self.where = SQLConditions(query=self)
-        self.having = SQLConditions(query=self, having=True)
+        self.conditions = SQLConditions(parent=self)
+        self.where = self.conditions.add_conditions
+        self.having = self.conditions.add_having
         self._value_count = 0
 
-    def select(self, *columns):
+    def select(self, *columns, distinct=False):
         self._select = []
-        self._distinct = False
+        self._distinct = distinct
         for col in columns:
             if isinstance(col, Column):
-                self._select.append(col.name)
+                self._select.append(str(col))
                 if not self._from and col.table:
                     self._from.add(col.table.name)
             elif isinstance(col, str):
@@ -533,40 +565,8 @@ class Query:
 
     __call__ = select
 
-    def clear_conditions(self):
-        self._conditions = tuple()
-        self._having = tuple()
-        return self
-
-    def add_conditions(self, *conditions):
-        con = []
-        hav = []
-        for c in conditions:
-            if not isinstance(c, tuple):
-                if c.aggregate:
-                    hav.append(c)
-                else:
-                    con.append(c)
-            else:
-                con.append(c)
-        self._conditions = (*self._conditions, *con)
-        self._having = (*self._having, *hav)
-        return self
-
-    def add_having(self, *conditions):
-        self._having = (*self._conditions, *conditions)
-        return self
-
-    def select_distinct(self, *columns):
-        self._select = []
-        self._distinct = True
-        for col in columns:
-            if isinstance(col, Column):
-                self._select.append(col.name)
-                if not self._from and col.table:
-                    self._from.add(col.table.name)
-            elif isinstance(col, str):
-                self._select.append(col)
+    def distinct(self, distinct_select=True):
+        self._distinct = distinct_select
         return self
 
     def table(self, *tables):
@@ -653,14 +653,16 @@ class Query:
             select_names = [str(c) for c in self._select]
             sql.append(f"{select_str} {', '.join(select_names)}")
         sql.append(f"FROM {', '.join(self._from)}")
-        if self._conditions:
-            con_sql, values = self._build_conditions(*self._conditions)
+        if self.conditions.where_conditions:
+            con_sql, values = self._build_conditions(
+                *self.conditions.where_conditions)
             query_values.extend(values)
             sql.append(f"WHERE {' AND '.join(con_sql)}")
         if self._group_by:
             sql.append(f"GROUP BY {', '.join(self._group_by)}")
-        if self._having:
-            con_sql, values = self._build_conditions(*self._having)
+        if self.conditions.having_conditions:
+            con_sql, values = self._build_conditions(
+                *self.conditions.having_conditions)
             query_values.extend(values)
             sql.append(f"HAVING {' AND '.join(con_sql)}")
         if self._order_by:
