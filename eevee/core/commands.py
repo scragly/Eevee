@@ -171,13 +171,9 @@ class Core:
     async def _uptime(self, ctx):
         """Shows Eevee's uptime"""
         uptime_str = ctx.bot.uptime_str
-        embed = make_embed(
-            title='Uptime',
-            content=uptime_str,
-            msg_colour='blue',
-            icon="https://i.imgur.com/82Cqf1x.png")
         try:
-            await ctx.send(embed=embed)
+            await ctx.embed('Uptime', uptime_str, colour='blue',
+                            icon="https://i.imgur.com/82Cqf1x.png")
         except discord.errors.Forbidden:
             await ctx.send("Uptime: {}".format(uptime_str))
 
@@ -312,7 +308,7 @@ class Core:
     @group(name="get", category="Owner")
     @checks.is_co_owner()
     async def _get(self, ctx):
-        """Gets Eevee's settings"""
+        """Gets information on settings, guilds, channels and users"""
         if ctx.invoked_subcommand is None:
             await ctx.bot.send_cmd_help(ctx)
 
