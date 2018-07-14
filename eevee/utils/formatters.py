@@ -35,7 +35,8 @@ def colour(*args):
 
 def make_embed(msg_type='', title=None, icon=None, content=None,
                msg_colour=None, guild=None, title_url=None,
-               thumbnail='', image=''):
+               thumbnail='', image='', fields=None, footer=None,
+               footer_icon=None, inline=False):
     """Returns a formatted discord embed object.
 
     Define either a type or a colour.
@@ -83,6 +84,18 @@ def make_embed(msg_type='', title=None, icon=None, content=None,
         embed.set_thumbnail(url=thumbnail)
     if image:
         embed.set_image(url=image)
+    if fields:
+        for key, value in fields.items():
+            ilf = inline
+            if not isinstance(value, str):
+                ilf = value[0]
+                value = value[1]
+            embed.add_field(name=key, value=value, inline=ilf)
+    if footer:
+        footer = {'text':footer}
+        if footer_icon:
+            footer['icon_url'] = footer_icon
+        embed.set_footer(**footer)
     return embed
 
 async def _read_image_from_url(url):
