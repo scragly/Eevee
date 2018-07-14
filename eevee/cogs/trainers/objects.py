@@ -32,7 +32,7 @@ class Trainer:
     async def update_data(self, **data):
         if data:
             self._data = dict(self._data, **data)
-        result = await self.table.upsert(**self._data)
+        await self.table.upsert(**self._data)
 
     async def get_data(self):
         data = await self.table.get_first()
