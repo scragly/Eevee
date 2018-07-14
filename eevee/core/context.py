@@ -1,4 +1,7 @@
 import asyncio
+import textwrap
+
+from aiocontextvars import enable_inherit, ContextVar
 
 import discord
 from discord.abc import Messageable
@@ -6,6 +9,18 @@ from discord.ext import commands
 
 from eevee.core import checks
 from eevee.utils.formatters import convert_to_bool, make_embed, bold
+
+cvar = ContextVar('eevee')
+
+def ctx_setup(loop):
+    import builtins
+    builtins.__dict__['_'] = use_current_gettext
+    builtins.__dict__['get_ctx'] = cvar.get
+    builtins.__dict__['__cvar__'] = cvar
+    enable_inherit(loop)
+
+def use_current_gettext(*args, **kwargs):
+    return cvar.get().get_text(*args, **kwargs)
 
 class Context(commands.Context):
     def __init__(self, **kwargs):
@@ -17,11 +32,18 @@ class Context(commands.Context):
             self.setting = self.guild_dm.settings
         self.get = GetTools(self)
 
+    def get_text(self, content):
+        return (
+            f"Author: {self.author.display_name}\n"
+            f"Guild: {self.guild.name}\n"
+            f"Message: {self.message.id}\n"
+            f"Content:\n{content}")
+
     async def codeblock(self, contents, syntax="py", send=True, title=None):
-        contents = str(contents)
         paginator = commands.Paginator(prefix=f'```{syntax}', max_size=1900)
         for line in contents.split('\n'):
-            paginator.add_line(line.rstrip().replace('`', '\u200b`'))
+            for wrapline in textwrap.wrap(line, width=80):
+                paginator.add_line(wrapline.rstrip().replace('`', '\u200b`'))
         if not send:
             return paginator.pages
         for page in paginator.pages:
@@ -64,10 +86,10 @@ class Context(commands.Context):
             return value
 
     async def error(self, title, details=None, log_level='warning',
-                    exc: Exception = None):
+                    exc: Exception = None, **options):
         """Submit an error to log and reply with error message"""
         msg = await self.embed(
-            title=title, description=details, msg_type='error')
+            title=title, description=details, msg_type='error', **options)
         if exc:
             raise exc(details)
         else:
@@ -78,17 +100,23 @@ class Context(commands.Context):
             log(log_msg)
         return msg
 
-    async def success(self, title, details=None, send=True):
+    async def success(self, title=None, details=None, send=True, **options):
         """Quick send or build an info embed response."""
-        return await self.embed(title, details, msg_type='success', send=send)
+        if title:
+            return await self.embed(
+                title, details, msg_type='success', send=send, **options)
+        else:
+            await self.ok()
 
-    async def info(self, title, details=None, send=True):
+    async def info(self, title, details=None, send=True, **options):
         """Quick send or build an info embed response."""
-        return await self.embed(title, details, msg_type='info', send=send)
+        return await self.embed(
+            title, details, msg_type='info', send=send, **options)
 
-    async def warning(self, title, details=None, send=True):
+    async def warning(self, title, details=None, send=True, **options):
         """Quick send or build an info embed response."""
-        return await self.embed(title, details, msg_type='warning', send=send)
+        return await self.embed(
+            title, details, msg_type='warning', send=send, **options)
 
     async def embed(self, title, description=None, plain_msg='', *,
                     msg_type=None, title_url=None, colour=None,
@@ -244,7 +272,7 @@ class Context(commands.Context):
             await msg.add_reaction(emoji)
 
         try:
-            emoji, *_, = await self.bot.wait_for('raw_reaction_add', check=check, timeout=timeout)
+            emoji, *__, = await self.bot.wait_for('raw_reaction_add', check=check, timeout=timeout)
             # str cast in case of _ProxyEmojis
             return emoji_lookup[str(emoji)]
         except asyncio.TimeoutError:
@@ -294,7 +322,7 @@ class GetTools:
                 member = members.get(search_term, None)
             return member
 
-    async def message(self, id, channel=None, guild=None):
+    async def message(self, id, channel=None, guild=None, no_cache=False):
         """Get a message from the current or specified channels.
 
         Parameters
@@ -319,6 +347,10 @@ class GetTools:
             if not guild:
                 return None
         channel = channel or self.ctx.channel
+        if not no_cache:
+            msg = self.get(channel._state._messages, id=id)
+            if msg:
+                return msg
         try:
             return await channel.get_message(id)
         except discord.NotFound:
