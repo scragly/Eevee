@@ -2,6 +2,8 @@ import itertools
 import os
 import platform
 import logging
+import inspect
+import importlib
 from collections import Counter
 from datetime import datetime
 
@@ -14,9 +16,10 @@ from discord.utils import cached_property
 from discord.ext import commands
 
 from eevee import config
+from eevee.core.cog_base import NewCog
 from eevee.core.context import Context
 from eevee.core.data_manager import DatabaseInterface, DataManager
-from eevee.utils import ExitCodes, pagination, fuzzymatch
+from eevee.utils import ExitCodes, pagination, fuzzymatch, make_embed
 
 
 class Eevee(commands.AutoShardedBot):
@@ -60,11 +63,13 @@ class Eevee(commands.AutoShardedBot):
         self.shutdown_mode = ExitCodes.CRITICAL
         self.launcher = kwargs.pop('launcher')
         self.debug = kwargs.pop('debug')
+        self.from_restart = kwargs.pop('from_restart')
         self.counter = Counter()
         self.launch_time = None
         self.core_dir = os.path.dirname(os.path.realpath(__file__))
-        self.data_dir = os.path.join(self.core_dir, "..", "data")
-        self.ext_dir = os.path.join(self.core_dir, "..", "cogs")
+        self.eevee_dir = os.path.dirname(self.core_dir)
+        self.data_dir = os.path.join(self.eevee_dir, "data")
+        self.ext_dir = os.path.join(self.eevee_dir, "cogs")
         self.config = config
         self.token = config.bot_token
         self.req_perms = discord.Permissions(config.bot_permissions)
@@ -120,8 +125,8 @@ class Eevee(commands.AutoShardedBot):
             self.shutdown_mode = ExitCodes.SHUTDOWN
         else:
             self.shutdown_mode = ExitCodes.RESTART
-        await self.dbi.stop()
         await self.logout()
+        await self.dbi.stop()
 
     @cached_property
     def invite_url(self):
@@ -188,7 +193,7 @@ class Eevee(commands.AutoShardedBot):
             return category or '\u200b'
         entries = sorted(self.commands, key=sortkey)
         categories = []
-        for cmd_group, _ in itertools.groupby(entries, key=groupkey):
+        for cmd_group, __ in itertools.groupby(entries, key=groupkey):
             if cmd_group != '\u200b':
                 categories.append(cmd_group)
         return category if category in categories else None
@@ -204,6 +209,7 @@ class Eevee(commands.AutoShardedBot):
         ctx = await self.get_context(message, cls=Context)
         if not ctx.command:
             return
+        __cvar__.set(ctx)
         await self.invoke(ctx)
 
     def match(self, data_list, item):
@@ -219,7 +225,7 @@ class Eevee(commands.AutoShardedBot):
         return discord.utils.get(iterable, **attrs)
 
     def find_guild(self, name):
-        """A helper that searches for a channel by name."""
+        """A helper that searches for a guild by name."""
         result = self.get(self.guilds, name=name)
         if not result:
             guild_list = (guild.name for guild in self.guilds)
@@ -279,7 +285,10 @@ class Eevee(commands.AutoShardedBot):
             self.launch_time = datetime.utcnow()
         if not self.launcher:
             print(intro_deco)
-        print("We're on!\n")
+        if self.from_restart:
+            print("We're back!\n")
+        else:
+            print("We're on!\n")
         print(f"Eevee Version: {self.version}\n")
         if self.debug:
             print(f"Python Version: {self.py_version}")
@@ -294,6 +303,34 @@ class Eevee(commands.AutoShardedBot):
             print("I'm not in any server yet, so be sure to invite me!")
         if self.invite_url:
             print(f"\nInvite URL: {self.invite_url}\n")
+
+        if self.from_restart:
+            table = self.dbi.table('restart_savedata')
+            table.query.order_by(table['restart_snowflake'], asc=False)
+            table.query.limit(1)
+            last_restart = (await table.query.get())[0]
+
+            embed = make_embed(title='Restart Complete.', msg_type='success')
+
+            guild = self.get_guild(last_restart['restart_guild'])
+
+            if guild:
+                channel = guild.get_channel(last_restart['restart_channel'])
+
+                if channel:
+                    original_message = await channel.get_message(
+                        last_restart['restart_message'])
+                    return await original_message.edit(embed=embed)
+
+            else:
+                channel = self.get_user(last_restart['restart_by'])
+
+            if not channel:
+                channel = self.get_user(self.owner)
+                if not channel:
+                    return self.logger.error('Bot owner not found.')
+
+            return await channel.send(embed=embed)
 
 # command decorators
 
@@ -356,4 +393,13 @@ def group(*args, **kwargs):
         func.command_category = category
         result = commands.group(*args, **kwargs)(func)
         return result
+    return decorator
+
+def cog(name, cls=None, **kwargs):
+    if not cls:
+        cls = NewCog
+    def decorator(Cls):
+        cname = name or Cls.__class__.__name__
+        cog_instance = cls(name=cname, callback=Cls, **kwargs)
+        return cog_instance
     return decorator
