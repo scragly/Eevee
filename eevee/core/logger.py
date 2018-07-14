@@ -8,6 +8,7 @@ import logging
 from logging import handlers
 
 import asyncpg
+import discord
 
 from eevee.utils import snowflake
 
@@ -100,7 +101,9 @@ class DBLogHandler(logging.Handler):
                     func_name=record.funcName, line_no=record.lineno,
                     message=record.message, traceback=record.exc_info)
         try:
-            await self.bot.dbi.table(self.log_name).insert(**data)
+            table = self.bot.dbi.table(self.log_name)
+            table.insert(**data)
+            await table.insert.commit()
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
@@ -120,7 +123,53 @@ class ActivityLogging:
                     clean_content=msg.clean_content, embeds=embeds,
                     webhook_id=msg.webhook_id, attachments=attachments)
         try:
-            await self.bot.dbi.table('discord_messages').insert(**data)
+            table = self.bot.dbi.table('discord_messages')
+            table.insert(**data)
+            await table.insert.commit()
+        except asyncpg.PostgresError as e:
+            self.logger.exception(type(e).__name__, exc_info=e)
+
+    async def on_raw_message_delete(self, payload):
+        try:
+            table = self.bot.dbi.table('discord_messages')
+            table.update(deleted=True)
+            table.update.where(message_id=payload.message_id)
+            await table.update.commit()
+        except asyncpg.PostgresError as e:
+            self.logger.exception(type(e).__name__, exc_info=e)
+
+    async def on_raw_bulk_message_delete(self, payload):
+        try:
+            table = self.bot.dbi.table('discord_messages')
+            table.update(deleted=True)
+            m_ids = payload.message_ids
+            conditions = [table['message_id'] == m_id for m_id in m_ids]
+            table.update.where(conditions)
+            await table.update.commit()
+        except asyncpg.PostgresError as e:
+            self.logger.exception(type(e).__name__, exc_info=e)
+
+    async def on_message_edit(self, before, after):
+        if before.type == discord.MessageType.call:
+            return
+        if before.content == after.content:
+            return
+        msg = after
+        sent = int(msg.edited_at.replace(tzinfo=timezone.utc).timestamp())
+        guild_id = msg.guild.id if msg.guild else None
+        embeds = [json.dumps(e.to_dict()) for e in msg.embeds]
+        attachments = [a.url for a in msg.attachments]
+        data = dict(message_id=msg.id, sent=sent, is_edit=True, deleted=False,
+                    author_id=msg.author.id, channel_id=msg.channel.id,
+                    guild_id=guild_id, content=msg.content,
+                    clean_content=msg.clean_content, embeds=embeds,
+                    webhook_id=msg.webhook_id, attachments=attachments)
+        try:
+            table = self.bot.dbi.table('discord_messages')
+            table.insert(**data)
+            # update existing data
+            table.insert.primaries('message_id', 'sent')
+            await table.insert.commit(do_update=True)
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
@@ -129,17 +178,21 @@ class ActivityLogging:
         sent = int(created.replace(tzinfo=timezone.utc).timestamp())
         guild = ctx.guild.id if ctx.guild else None
         cog = ctx.cog.__class__.__name__ if ctx.cog else None
+        isc = ctx.invoked_subcommand.name if ctx.invoked_subcommand else None
+        cmd = ctx.command.name if ctx.command else None
         data = dict(message_id=ctx.message.id, sent=sent,
                     author_id=ctx.author.id, channel_id=ctx.channel.id,
                     guild_id=guild, prefix=ctx.prefix,
-                    command=ctx.command.name, invoked_with=ctx.invoked_with,
-                    invoked_subcommand=ctx.invoked_subcommand,
+                    command=cmd, invoked_with=ctx.invoked_with,
+                    invoked_subcommand=isc,
                     subcommand_passed=ctx.subcommand_passed,
                     command_failed=ctx.command_failed, cog=cog)
         try:
-            await self.bot.dbi.table('command_log').insert(**data)
-        except asyncpg.UniqueViolationError:
-            pass
+            table = self.bot.dbi.table('command_log')
+            table.insert(**data)
+            table.insert.primaries('message_id', 'sent')
+            # ignore conflicts
+            await table.insert.commit(do_update=False)
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
 
@@ -147,21 +200,29 @@ class ActivityLogging:
         status_update = None
         status_from = None
         name_update = None
+
         if before.status != after.status:
             status_update = str(after.status)
             status_from = str(before.status)
-        if before.nick != after.nick:
-            name_update = after.display_name
-        if not status_update or name_update:
+
+        if before.nick != after.nick and after.nick:
+            name_update = after.nick
+
+        if not status_update and not name_update:
             return
+
         time_value = int(time.time())
         guild = after.guild.id if after.guild else None
+
         data = dict(member_id=after.id, time=time_value,
                     status=status_update, from_status=status_from,
                     guild_id=guild, display_name=name_update)
+
         try:
-            await self.bot.dbi.table('member_activity').insert(**data)
-        except asyncpg.UniqueViolationError:
-            pass
+            table = self.bot.dbi.table('member_activity')
+            table.insert(**data)
+            table.insert.primaries('member_id', 'time')
+            # ignore conflicts
+            await table.insert.commit(do_update=False)
         except asyncpg.PostgresError as e:
             self.logger.exception(type(e).__name__, exc_info=e)
