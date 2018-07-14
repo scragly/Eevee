@@ -31,7 +31,8 @@ setup(
         'asyncpg>=0.13',
         'python-Levenshtein>=0.12',
         'fuzzywuzzy',
-        'psutil'
+        'psutil',
+        'aiocontextvars'
     ],
 
     dependency_links=[
