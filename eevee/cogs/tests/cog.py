@@ -1,20 +1,35 @@
 import re
 import os
+import sys
 import asyncio
 import json
 import async_timeout
 import pkgutil
 import numpy
 import random
+import subprocess
+import datetime
+import time
+import pendulum
+from PIL import Image, ImageDraw, ImageOps
+from io import BytesIO
+from aiocontextvars import ContextVar
+
 import discord
 from discord.ext import commands
 from discord.ext.commands import Paginator
 
 from eevee import command, group, checks, Cog
-from eevee.utils import make_embed, get_match
+from eevee.utils import make_embed, get_match, cvtest
 from eevee.utils.converters import Guild
 from eevee.utils.formatters import bold
+from eevee.core.data_manager import errors
 
+PBOT_APPID = 'un08c68977'
+PBOT_UKEY = 'd6ec6b1babce597b27050962926f3a4c'
+
+def bitround(x):
+    return max(min(1 << int(x).bit_length() - 1, 1024), 16)
 
 class Tests(Cog):
     """Test Features"""
@@ -158,15 +173,18 @@ class Tests(Cog):
         await ctx.send('test')
 
     @command()
-    async def cleanup(self, ctx, after_msg_id: int):
+    async def cleanup(self, ctx, after_msg_id: int, channel_id: int = None):
         after_msg = await ctx.get.message(after_msg_id)
+        channel = ctx.channel
+        if channel_id:
+            channel = ctx.get.channel(channel_id)
         def is_eevee(msg):
             return msg.author == ctx.bot.user
         try:
-            deleted = await ctx.channel.purge(
+            deleted = await channel.purge(
                 after=after_msg, check=is_eevee, bulk=True)
         except discord.Forbidden:
-            deleted = await ctx.channel.purge(
+            deleted = await channel.purge(
                 after=after_msg, check=is_eevee, bulk=False)
         embed = make_embed(
             msg_type='success',
@@ -198,8 +216,8 @@ class Tests(Cog):
         await ctx.send(f"{member.name} - {member.id}")
 
     @command()
-    async def avy(self, ctx, member: discord.Member, size: int = 1024):
-        await ctx.send(member.avatar_url_as(size=size))
+    async def avy(self, ctx, member: discord.Member, size: bitround = 1024):
+        await ctx.send(member.avatar_url_as(size=size, static_format='png'))
 
     @command()
     async def delete_msg(self, ctx, *message_ids: int):
@@ -229,14 +247,6 @@ class Tests(Cog):
     @command(aliases=["hello", "g'day", "gday", "whatsupcobba", "topofthemorning", "hola"])
     async def hi(self, ctx):
         await ctx.embed(f"Hi {ctx.author.display_name} \U0001f44b")
-
-    @command()
-    @checks.is_owner()
-    async def sql(self, ctx, *, query):
-        results = await ctx.bot.dbi.execute_transaction(query)
-        if len(results) == 1:
-            results = results[0]
-        await ctx.codeblock(results, "")
 
     @command()
     async def codeblock(self, ctx, syntax, *, content):
@@ -297,7 +307,7 @@ class Tests(Cog):
         def get_modules(path):
             return {
                 ext : get_modules(os.path.join(path, ext)) if ispkg else False
-                for _, ext, ispkg in pkgutil.iter_modules([path])
+                for __, ext, ispkg in pkgutil.iter_modules([path])
             }
         tree_dict['eevee'] = get_modules(ctx.bot.eevee_dir)
         tree_lines = []
@@ -392,3 +402,178 @@ class Tests(Cog):
             results.append(process_dice(d))
         msg = '\n'.join(', '.join(map(str, l)) for l in results)
         return await ctx.embed("Results", msg)
+
+    @command()
+    async def test_default(self, ctx, guild: discord.Guild = None):
+        guild = guild or ctx.guild
+        names = ["general", "lounge", "chat"]
+        def can_use(channel):
+            if not channel.name in names:
+                return False
+            perms = channel.permissions_for(guild.me)
+            return perms.send_messages and perms.read_messages
+        results = list(filter(can_use, guild.text_channels))
+        await ctx.send(str(results))
+
+    @command(aliases=['igpayatinlay'])
+    async def piglatin(self, ctx, *words):
+        if not words:
+            return await ctx.send('Onay Ordsway Otay Onvertcay')
+        result = []
+        for word in words:
+            if not word:
+                result.append('')
+                continue
+            word = word.lower()
+            pattern = re.compile('[a,e,i,o,u]')
+            y = 'y'
+            tail = 'a' + y
+            if word.startswith(y):
+                result.append(word + y + tail)
+                continue
+            first_vowel = pattern.search(word)
+            if not first_vowel:
+                result.append(word + tail)
+                continue
+            first_vowel = first_vowel.group()
+            if word.find(first_vowel) == 0:
+                result.append(word + y + tail)
+                continue
+            first, second = word.split(first_vowel, 1)
+            result.append(first_vowel + second + first + tail)
+        await ctx.send(' '.join(result))
+
+    @command()
+    async def show_deleted(self, ctx, count: int = 1,
+                           channel: discord.TextChannel = None):
+        msg_table = ctx.bot.dbi.table('discord_messages')
+        msg_table.query(
+            'message_id', 'sent', 'is_edit', 'author_id', 'clean_content',
+            'embeds', 'attachments')
+        msg_table.query.where(channel_id=channel or ctx.channel.id)
+        msg_table.query.where(deleted=True)
+        msg_table.query.order_by('message_id', 'sent', asc=False)
+        msg_table.query.limit(count)
+        messages = await msg_table.query.get()
+
+        if not messages:
+            return await ctx.embed(
+                "I didn't find any deleted messages, sorry!")
+
+        msg_data = {}
+        for msg in messages:
+            author = await ctx.get.user(msg['author_id'])
+            date = datetime.datetime.fromtimestamp(int(msg['sent']))
+            date_str = date.strftime('%Y-%m-%d %H:%M:%S')
+            content = msg['clean_content']
+            embeds = msg['embeds']
+            if len(embeds) > 1:
+                embed_content = f'{len(embeds)} Embeds'
+            elif embeds:
+                embed = json.loads(embeds[0])
+                embed_content = []
+                if embed.get('author'):
+                    embed_content.append(
+                        f"AuthorTitle: {embed['author']['name']}")
+                if embed.get('title'):
+                    embed_content.append(
+                        f"Title: {embed['title']}")
+                if embed.get('description'):
+                    embed_content.append(
+                        f"Description: {embed['description']}")
+                if embed.get('fields'):
+                    embed_content.append(
+                        f"Field Count: {len(embed['fields'])}")
+                if embed.get('color'):
+                    embed_content.append(
+                        f"Colour: {embed['color']}")
+                if embed_content:
+                    embed_content = '\n'.join(embed_content)
+                else:
+                    embed_content = '1 Embed'
+
+                content += f"\n**Embeds:**\n{embed_content}"
+
+            msg_data[f"{author.display_name} | {date_str}"] = content
+
+        if count > 1:
+            title = 'Recently Deleted Messages'
+        else:
+            title = 'Last Deleted Message'
+
+        await ctx.embed(title, fields=msg_data)
+
+    @command()
+    async def context_test(self, ctx, number: int):
+        _ctx_.set(number)
+        await ctx.send(str(number))
+        await asyncio.sleep(number)
+        await cvtest.context_test_func(number)
+        ctx_value = _ctx_.get()
+        await ctx.send(str(ctx_value))
+
+    @command()
+    async def chat(self, ctx, *, content):
+
+        if not hasattr(ctx.bot, 'chat_sessions'):
+            ctx.bot.chat_sessions = {}
+
+        session_id = ctx.bot.chat_sessions.get(ctx.author.id, None)
+
+        params = {'user_key' : PBOT_UKEY, 'input' : content}
+
+        if session_id:
+            params['sessionid'] = session_id
+
+        chat_url = f'https://api.pandorabots.com/talk/{PBOT_APPID}/eevee'
+
+        async with ctx.bot.session.post(chat_url, params=params) as resp:
+            status = resp.status
+            print(resp.url)
+            print(await resp.text())
+            data = await resp.json()
+
+        if status == 200:
+            reply = data['responses'][0]
+        else:
+            reply = data['message']
+
+        await ctx.send(reply)
+
+        if not session_id and status == 200:
+            ctx.bot.chat_sessions[ctx.author.id] = data['sessionid']
+
+    async def circle_crop(self, img_url):
+        async with self.bot.session.get(img_url) as r:
+            data = BytesIO(await r.read())
+        img = Image.open(data)
+        size = img.size
+        with Image.new('L', size, 255) as mask:
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0) + size, fill=0)
+            del draw
+            img = img.convert('RGBA')
+            output = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
+            output.paste(0, mask=mask)
+            b = BytesIO()
+            output.save(b, 'png')
+            b.seek(0)
+            return b
+
+    @command()
+    async def profile_preview(self, ctx, url=None):
+        img_urls = []
+        if not url:
+            if ctx.message.attachments:
+                for img in ctx.message.attachments:
+                    img_urls.append(img.url)
+            else:
+                img_urls.append(ctx.author.avatar_url_as(format='png'))
+        else:
+            img_urls.append(url)
+        imgs = []
+        for img_url in img_urls:
+            imgs.append(await self.circle_crop(img_url))
+
+        for img in imgs:
+            await ctx.send(file=discord.File(img, filename='circle.png'))
