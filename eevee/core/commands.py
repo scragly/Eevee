@@ -11,6 +11,7 @@ import discord
 from discord.ext import commands
 
 from eevee import command, group, checks, errors
+from eevee.utils import snowflake
 from eevee.utils.pagination import Pagination
 from eevee.utils.formatters import url_color, make_embed, convert_to_bool
 
@@ -51,13 +52,24 @@ class Core:
     async def _restart(self, ctx):
         """Restarts the bot"""
         embed = make_embed(
-            title='Restarting.',
+            title='Restarting...',
             msg_colour='red',
             icon="https://i.imgur.com/uBYS8DR.png")
         try:
-            await ctx.send(embed=embed)
+            restart_msg = await ctx.send(embed=embed)
         except discord.HTTPException:
-            pass
+            restart_msg = None
+        data = {
+            'restart_snowflake': next(snowflake.create()),
+            'restart_by':ctx.author.id,
+            'restart_channel':ctx.channel.id,
+            'restart_guild':ctx.guild.id
+        }
+        if restart_msg:
+            data['restart_message'] = restart_msg.id
+        table = ctx.bot.dbi.table('restart_savedata')
+        table.insert(**data)
+        await table.insert.commit()
         await ctx.bot.shutdown(restart=True)
 
     @group(name="set", category='Owner')
@@ -137,16 +149,9 @@ class Core:
         try:
             await ctx.bot.user.edit(avatar=data)
         except discord.HTTPException:
-            embed = make_embed(
-                msg_type='error',
-                title="Failed to set avatar",
-                content=("Remember that you can only do it up to 2 "
-                         "times an hour. URL must be a direct link to "
-                         "a JPG / PNG."))
-            await ctx.send(embed=embed)
+            await ctx.error('Failed to set avatar.')
         else:
-            embed = make_embed(msg_type='success', title="Avatar set.")
-            await ctx.send(embed=embed)
+            await ctx.success('Avatar set.')
 
     @_set.command(name="nickname")
     @checks.is_admin()
@@ -201,16 +206,9 @@ class Core:
         bot = ctx.bot
         author_repo = "https://github.com/scragly"
         bot_repo = author_repo + "/Eevee"
-        server_url = "https://discord.gg/hhVjAN8"
         owner = await bot.get_user_info(ctx.bot.owner)
         uptime_str = bot.uptime_str
-        invite_str = ("[Click to invite me to your server!]({})"
-                      "").format(bot.invite_url)
-
-        about = (
-            "I help organise and coordinate Pokemon Go trainers!\n"
-            "[Check out my code and docs!]({bot_repo})\n\n"
-            "").format(bot_repo=bot_repo)
+        invite_str = "[Click to invite me to your server!]({})".format(bot.invite_url)
 
         member_count = 0
         server_count = 0
@@ -218,21 +216,24 @@ class Core:
             server_count += 1
             member_count += guild.member_count
 
+        about = [
+            "Scragly's in-dev test bot!",
+            f"**[Docs & Source]({bot_repo})**\n",
+            # f"**{invite_str}**\n",
+            f"Stats: `{ctx.prefix}stats`",
+            f"Help: `{ctx.prefix}help`\n",
+            "A lot of my commands are\nlimited to devs only, sorry!\n",
+            f"**Owner:** {owner}",
+            f"**Uptime:** {uptime_str}",
+            f"**Servers:** {server_count}",
+            f"**Members:** {member_count}"]
+
+
         embed_colour = await url_color(bot.avatar_small)
         embed = make_embed(
             icon=bot.avatar_small, title=f"{bot.user}",
-            content=about, msg_colour=embed_colour)
+            content='\n'.join(about), msg_colour=embed_colour)
         embed.set_thumbnail(url=bot.avatar)
-        embed.add_field(name="Owner", value=owner)
-        embed.add_field(name="Uptime", value=uptime_str)
-        embed.add_field(name="Servers", value=server_count)
-        embed.add_field(name="Members", value=member_count)
-        embed.add_field(name="Version", value=bot.version)
-        embed.add_field(name="D.Py Version", value=bot.dpy_version)
-        embed.add_field(name="Invite Link", value=invite_str, inline=False)
-        footer_txt = ("For support, contact us on our Discord server. "
-                      "Invite Code: hhVjAN8")
-        embed.set_footer(text=footer_txt)
 
         try:
             await ctx.send(embed=embed)
@@ -277,8 +278,13 @@ class Core:
             server_count += 1
             member_count += guild.member_count
 
-        message_count = await bot.dbi.table('discord_messages').get_value('COUNT(*)')
-        command_count = await bot.dbi.table('command_log').get_value('COUNT(*)')
+        msg_table = bot.dbi.table('discord_messages')
+        msg_table.query(msg_table['*'].count)
+        message_count = await msg_table.query.get_value()
+
+        cmd_table = bot.dbi.table('command_log')
+        cmd_table.query(cmd_table['*'].count)
+        command_count = await cmd_table.query.get_value()
 
         embed = make_embed(
             msg_type='info', title="Eevee Statistics")
@@ -305,12 +311,10 @@ class Core:
         except discord.HTTPException:
             await ctx.send("I need the `Embed links` permission to send this")
 
-    @group(name="get", category="Owner")
-    @checks.is_co_owner()
+    @group(name="get", category="Owner", invoke_without_command=True)
     async def _get(self, ctx):
         """Gets information on settings, guilds, channels and users"""
-        if ctx.invoked_subcommand is None:
-            await ctx.bot.send_cmd_help(ctx)
+        await ctx.bot.send_cmd_help(ctx)
 
     @group(category="Bot Info", name='permissions',
            aliases=['perms'], invoke_without_command='True')
@@ -560,19 +564,20 @@ class Core:
                     msg_type='info', title=f"Prefix is {default_prefix}")
                 await ctx.send(embed=embed)
         else:
-            if new_prefix:
-                await ctx.guild_dm.prefix(new_prefix)
-                if new_prefix.lower() == 'reset':
-                    new_prefix = bot.default_prefix
-                embed = make_embed(
-                    msg_type='success', title=f"Prefix set to {new_prefix}")
-                await ctx.send(embed=embed)
-            else:
-                guild_prefix = await ctx.guild_dm.prefix()
-                prefix = guild_prefix if guild_prefix else default_prefix
-                embed = make_embed(
-                    msg_type='info', title=f"Prefix is {prefix}")
-                await ctx.send(embed=embed)
+            if await ctx.is_co_owner():
+                if new_prefix:
+                    await ctx.guild_dm.prefix(new_prefix)
+                    if new_prefix.lower() == 'reset':
+                        new_prefix = bot.default_prefix
+                    embed = make_embed(
+                        msg_type='success', title=f"Prefix set to {new_prefix}")
+                    return await ctx.send(embed=embed)
+
+            guild_prefix = await ctx.guild_dm.prefix()
+            prefix = guild_prefix if guild_prefix else default_prefix
+            embed = make_embed(
+                msg_type='info', title=f"Prefix is {prefix}")
+            await ctx.send(embed=embed)
 
     @command(name='help', category='Bot Info')
     async def _help(self, ctx, *, command: str = None):
