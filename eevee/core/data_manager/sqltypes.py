@@ -173,3 +173,15 @@ class JSONSQL(SQLType):
 
     def to_sql(self):
         return 'JSONB'
+
+class ArraySQL(SQLType):
+    def __init__(self, inner_type, size: int = None):
+        if not isinstance(inner_type, SQLType):
+            raise SchemaError('Array inner type must be an SQLType')
+        self.type = inner_type
+        self.size = size
+
+    def to_sql(self):
+        if self.size:
+            return f"{self.type.to_sql()}[{self.size}]"
+        return f"{self.type.to_sql()}[]"
