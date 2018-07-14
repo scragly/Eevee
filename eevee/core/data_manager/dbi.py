@@ -4,7 +4,7 @@ import asyncpg
 
 from discord.ext.commands import when_mentioned_or
 
-from .schema import Table, TableNew
+from .schema import Table, Query, Insert, Update
 from .tables import core_table_sqls
 from . import sqltypes
 
@@ -36,7 +36,7 @@ class DatabaseInterface:
 
     async def recreate_pool(self):
         self.log.warning(f'Re-creating closed database pool.')
-        self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
+        self.pool = await asyncpg.create_pool(self.dsn, loop=self.loop)
 
     async def prepare(self):
         # ensure tables exists
@@ -97,7 +97,8 @@ class DatabaseInterface:
                 for rcrd in rcrds:
                     result.append(rcrd)
             return result
-        except asyncpg.exceptions.InterfaceError:
+        except asyncpg.exceptions.InterfaceError as e:
+            self.log.error(f'Exception {type(e)}: {e}')
             await self.recreate_pool()
             return await self.execute_query(query, *query_args)
 
@@ -121,106 +122,26 @@ class DatabaseInterface:
             await self.recreate_pool()
             return await self.execute_query(query, *query_args)
 
-    async def get(self, table: str, columns, **filters):
-        """Get data from table based on provided filters.
-
-        Parameters
-        -----------
-        table: :class:`str`
-            Name of the database table
-        columns: :class:`str` or :class:`list`, optional
-            The columns of data that will be returned
-        **filters:
-            Remaining keyword arguments will act as a filter for the data
-                column_name = record_value: :class:`str`
-        """
-        if isinstance(columns, (list, set, tuple)):
-            columns = ', '.join(columns)
-        sql = f"SELECT {columns} FROM {table}"
-        if filters:
-            filter_list = []
-            for i in range(len(filters)):
-                filter_list.append(f"{[*filters.keys()][i]}=${i+1}")
-            sql += ' WHERE ' + ' AND '.join(filter_list)
-        rcrds = await self.execute_query(sql, *filters.values())
-        return [dict(r) for r in rcrds]
-
-    async def get_first(self, table: str, columns='*', **filters):
-        """Get first record of queried data from table"""
-        rcrds = await self.get(table, columns, **filters)
-        return rcrds[0] if rcrds else None
-
-    async def get_value(self, table: str, column: str, **filters):
-        """Get first record value of queried data from table"""
-        rcrd = await self.get_first(table, column, **filters)
-        return list(rcrd.values())[0] if rcrd else None
-
-    async def get_values(self, table: str, column: str = '*', **filters):
-        """Get first record value of queried data from table"""
-        rcrds = await self.get(table, column, **filters)
-        return [list(r.values())[0] for r in rcrds] if rcrds else None
-
-    async def insert(self, table: str, **data):
-        """Add records to a table."""
-        column = ', '.join(data.keys())
-        col_idx = ', '.join([f'${i+1}' for i in range(len(data))])
-        sql = f"INSERT INTO {table} ({column}) VALUES ({col_idx})"
-        return await self.execute_transaction(sql, *data.values())
-
-    async def upsert(self, table: str, primary=None, **data):
-        """Add or update records of a table."""
-        column = ', '.join(data.keys())
-        col_idx = ', '.join([f'${i+1}' for i in range(len(data))])
-        sql = f"INSERT INTO {table} ({column}) VALUES ({col_idx})"
-        if not primary:
-            primary = await self.get_table_primary(table)
-        if isinstance(primary, (list, tuple)):
-            primary = ', '.join(primary)
-        sql += f" ON CONFLICT ({primary}) DO UPDATE SET "
-        excluded = [f'{c} = excluded.{c}' for c in data]
-        sql += f"{', '.join(excluded)};"
-        return await self.execute_transaction(sql, *data.values())
-
-    async def update(self, table: str, primary=None, **data):
-        """Updates records of a table."""
-        sql = [f"UPDATE {table} SET"]
-        sql.append(', '.join(f'{col} = ${i}' for i, col in enumerate(data, 1)))
-        primary = primary or await self.get_table_primary(table)
-        if isinstance(primary, (list, tuple)):
-            primary = ', '.join(primary)
-        return await self.execute_transaction(' '.join(sql), *data.values())
-
-    async def delete(self, table: str, **filters):
-        """Deletes records from table."""
-        filter_list = []
-        for i in range(len(filters)):
-            filter_list.append(f"{[*filters.keys()][i]}=${i+1}")
-        sql = f"DELETE FROM {table} WHERE {' AND '.join(filter_list)}"
-        return await self.execute_transaction(sql, *filters.values())
-
     async def create_table(self, name, columns: list, *, primaries=None):
         """Create table."""
         return await Table(self, name).create(columns, primaries=primaries)
 
-    async def delete_table(self, name):
-        """Delete table."""
-        return await Table.drop(self, name)
-
-    async def get_table_columns(self, table):
-        """Get column from table."""
-        return await self.get_values('information_schema.columns',
-                                     'column_name', TABLE_NAME=table)
-
-    async def get_table_primary(self, table):
-        """Get column from table."""
-        return await self.get_values('information_schema.key_column_usage',
-                                     'column_name', TABLE_NAME=table)
-
     def table(self, name):
         return Table(name, self)
 
-    def tablenew(self, name):
-        return TableNew(name, self)
+    def query(self, *tables):
+        tables = [Table(self, name) for name in tables]
+        return Query(self, tables)
 
-    def query(self, table_name):
-        return TableNew(table_name, self).query
+    def insert(self, table):
+        return Insert(self, table)
+
+    def update(self, table):
+        return Update(self, table)
+
+    async def tables(self):
+        table = self.table('information_schema.tables')
+        table.query('table_name')
+        table.query.where(table_schema='public')
+        table.query.order_by('table_name')
+        return await table.query.get()

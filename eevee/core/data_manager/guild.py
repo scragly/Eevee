@@ -20,7 +20,8 @@ class GuildDM:
         if key is not None:
             if value is not None:
                 return await config_table.upsert(
-                    (self.guild_id, str(key), str(value)))
+                    guild_id=self.guild_id,
+                    config_name=str(key), config_value=str(value))
             else:
                 return await self.dbi.settings_stmt.fetchval(
                     self.guild_id, str(key))
@@ -35,11 +36,12 @@ class GuildDM:
         Reset prefix to default by calling 'reset' as an arg.
         """
         pfx_tbl = self.dbi.table('prefix')
-        gid = self.guild_id
+        pfx_tbl.query.where(guild_id=self.guild_id)
         if new_prefix:
             if new_prefix.lower() == "reset":
-                return await pfx_tbl.delete(guild_id=gid)
-            else:
-                return await pfx_tbl.upsert((gid, new_prefix))
+                return await pfx_tbl.query.delete()
+            pfx_tbl.insert(guild_id=self.guild_id, prefix=new_prefix)
+            pfx_tbl.insert.primaries('guild_id')
+            return await pfx_tbl.insert.commit(do_update=True)
         else:
-            return await pfx_tbl.get_value('prefix', guild_id=gid)
+            return await pfx_tbl.query.get_value('prefix')
