@@ -8,7 +8,7 @@ EEVEE_EPOCH = 1502123160
 
 def to_timestamp(_id):
     _id = _id >> 22   # strip the lower 22 bits
-    _id += EEVEE_EPOCH    # adjust for twitter epoch
+    _id += EEVEE_EPOCH    # adjust for eevee epoch
     _id = _id // 1000  # convert from milliseconds to seconds
     return _id
 
