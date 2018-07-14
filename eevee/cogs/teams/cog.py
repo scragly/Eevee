@@ -20,7 +20,7 @@ class Teams(Cog):
     """Team Management"""
 
     def __init__(self, bot):
-        super().__init__(bot)
+        self.bot = bot
         self.team_list = bot.config.team_list
         self.team_colours = bot.config.team_colours
         self.team_emoji = bot.config.team_emoji
