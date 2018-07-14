@@ -1,4 +1,4 @@
-from eevee import command
+from eevee import command, checks
 from eevee.cogs.pokemon import Pokemon
 from .objects import Weather, PBRaid
 
@@ -16,6 +16,7 @@ class PokeBattler:
         }
 
     @command()
+    @checks.is_co_owner()
     async def counters(self, ctx, pkmn: Pokemon,
                        weather: Weather.match_name = Weather.DEFAULT,
                        move1=None, move2=None, userid=None):
@@ -49,7 +50,7 @@ class PokeBattler:
             stats_msg += f"**Pokebox UserID:** {pb_raid.userid}"
         else:
             stats_msg += f"**Attacker Level:** {pb_raid.atk_lvl}"
-        
+
         pkmn_colour = await pkmn.colour()
         embed = await ctx.embed(
             title, title_url=pb_raid.public_url,

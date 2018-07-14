@@ -181,12 +181,12 @@ class PBRaid:
 
     @property
     def fast_moves(self):
-        fast_moves, _ = zip(*self.movesets_list)
+        fast_moves, __ = zip(*self.movesets_list)
         return set(map(self.clean_txt, fast_moves))
 
     @property
     def charge_moves(self):
-        _, charge_moves = zip(*self.movesets_list)
+        __, charge_moves = zip(*self.movesets_list)
         return set(map(self.clean_txt, charge_moves))
 
     def raid_url(self):
