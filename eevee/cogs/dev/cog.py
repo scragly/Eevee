@@ -5,17 +5,21 @@ import textwrap
 import traceback
 import unicodedata
 import json
+import logging
 from datetime import datetime
 from contextlib import redirect_stdout
+
+import pathlib
 
 import discord
 from discord.ext import commands
 
-from eevee import checks, command
-from eevee.utils import make_embed
+from eevee import checks, command, group
+from eevee.utils import make_embed, get_match
 from eevee.utils.formatters import ilcode
 from eevee.utils.converters import BotCommand, Guild, Multi
 
+logger = logging.getLogger('eevee.cogs.dev')
 
 class Dev:
     """Developer Tools"""
@@ -32,13 +36,33 @@ class Dev:
         return checks.check_is_co_owner(ctx)
 
     @command(category='Developer')
+    async def linecount(self, ctx):
+        root = pathlib.Path(ctx.bot.core_dir, "..", "..")
+        py_files = tuple(root.glob('**/*.py'))
+        json_files = tuple(root.glob('**/*.json'))
+        py_count = len(py_files)
+        json_count = len(json_files)
+        total_files = py_count + json_count
+        py_pc = round(py_count/total_files*100)
+        json_pc = round(json_count/total_files*100)
+        ln_count = tuple(len(list(p.open(encoding='utf-8'))) for p in py_files)
+        max_count = max(ln_count)
+        total_count = sum(ln_count)
+        await ctx.info(
+            f"Project Statistics",
+            f"{total_count} Lines Total\n"
+            f"{max_count} Most Lines\n\n"
+            f"**{total_files} Files Total**\n"
+            f"{py_count} **\*.py** files ({py_pc}%)\n"
+            f"{json_count} **\*.json** files ({json_pc}%)")
+
+    @command(category='Developer')
     async def charinfo(self, ctx, *, characters: str):
         """Shows you information about a number of characters.
         Only up to 25 characters at a time.
         """
         if len(characters) > 25:
             return await ctx.send(f'Too many characters ({len(characters)}/25)')
-        embed = make_embed(msg_type='info')
         charlist = []
         rawlist = []
         for char in characters:
@@ -50,7 +74,8 @@ class Dev:
                 u_code = f'\\u{digit:>04}'
             charlist.append(' '.join([ilcode(u_code.ljust(10)+':'), name, '-', char]))
             rawlist.append(u_code)
-        embed.add_field(name='Character Info', value='\n'.join(charlist))
+
+        embed = await ctx.info('Character Info', '\n'.join(charlist), send=False)
         if len(characters) > 1:
             embed.add_field(name='Raw', value=ilcode(''.join(rawlist)), inline=False)
         await ctx.send(embed=embed)
@@ -65,8 +90,9 @@ class Dev:
         return content.strip('` \n')
 
     @command(category='Developer', name='eval')
+    @checks.is_owner()
     async def _eval(self, ctx, *, body: str):
-        """Evaluates a code"""
+        """Evaluates provided python code"""
 
         env = {
             'bot': self.bot,
@@ -75,7 +101,7 @@ class Dev:
             'author': ctx.author,
             'guild': ctx.guild,
             'message': ctx.message,
-            '_': self._last_result
+            '__': self._last_result
         }
 
         env.update(globals())
@@ -96,6 +122,7 @@ class Dev:
                 ret = await func()
         except Exception as e:
             value = stdout.getvalue()
+
             await ctx.send(f'```py\n{value}{traceback.format_exc()}\n```')
         else:
             value = stdout.getvalue()
@@ -106,14 +133,10 @@ class Dev:
 
             if ret is None:
                 if value:
-                    paginator = commands.Paginator(prefix='```py')
-                    for line in textwrap.wrap(value, 80):
-                        paginator.add_line(line.rstrip().replace('`', '\u200b`'))
-                    for p in paginator.pages:
-                        await ctx.send(p)
+                    await ctx.codeblock(p)
             else:
                 self._last_result = ret
-                await ctx.send(f'```py\n{value}{ret}\n```')
+                await ctx.codeblock(f"{value}{ret}")
 
     @command(category="Developer", name='print')
     async def _print(self, ctx, *, body: str):
@@ -214,10 +237,20 @@ class Dev:
         """Repeat the given message."""
         await ctx.send(msg)
 
-    @command(category="Developer")
-    async def emoji(self, ctx, emoji_id: int):
-        """Sends a custom emoji by the given ID."""
-        await ctx.send(f'<:emojitest:{emoji_id}>')
+    @command()
+    async def emoji(self, ctx, emoji):
+        emoji_obj = ctx.get.emoji(emoji)
+        if not emoji_obj:
+            emojis = {e.name:e for e in ctx.bot.emojis}
+            match = get_match(list(emojis.keys()), emoji, score_cutoff=80)[0]
+            emoji_obj = emojis[match] if match else None
+        if not emoji_obj:
+            return await ctx.error('Emoji not found.')
+        await ctx.send(f"{emoji_obj}")
+        try:
+            await ctx.message.delete()
+        except discord.HTTPException:
+            pass
 
     @command(category="Developer")
     async def check_perms(
@@ -276,3 +309,137 @@ class Dev:
                 title=f'Permissions for {member_or_role}',
                 content=msg)
             await ctx.author.send(embed=embed)
+
+    @command(category="Developer")
+    async def timeit(self, code, number):
+        pass
+
+    @command(category="Developer")
+    async def msg(self, ctx, message_id: int, channel=None, guild=None):
+        """Returns the raw content, embed and attachment data of a message."""
+        if channel and channel.isdigit():
+            channel = int(channel)
+        if guild and guild.isdigit():
+            guild = int(guild)
+        msg = await ctx.get.message(message_id, channel=channel, guild=guild)
+
+        if not msg:
+            return await ctx.error("Message not found")
+
+        details = [f"**Author:** {msg.author}"]
+        if msg.author.bot:
+            details.append("**Is Bot:** True")
+        if msg.type != discord.MessageType.default:
+            details.append(f"**Type:** {msg.type.name.title()}")
+        if msg.guild:
+            details.append(f"**Guild:** {msg.guild}")
+        else:
+            details.append(f"**DM User:** {msg.channel.recipient}")
+        details.append(f"**Channel:** {msg.channel}")
+        created = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        details.append(f"**Created:** {created}")
+        if msg.edited_at:
+            edited = msg.edited_at.strftime("%Y-%m-%d %H:%M:%S")
+            details.append(f"**Edited:** {edited}")
+        mentions = []
+        if msg.raw_mentions:
+            mentions.append(
+                f"**User Mentions:** {len(msg.raw_mentions)}")
+        if msg.raw_role_mentions:
+            mentions.append(
+                f"**Role Mentions:** {len(msg.raw_role_mentions)}")
+        if msg.raw_channel_mentions:
+            mentions.append(
+                f"**Channel Mentions:** {len(msg.raw_channel_mentions)}")
+        reactions = []
+        if msg.reactions:
+            react_total = sum([r.count for r in msg.reactions])
+            react_users = 0
+            for reaction in msg.reactions:
+                react_users += len(await reaction.users().flatten())
+            reactions.append(
+                f"**Total:** {react_total}"
+            )
+            reactions.append(
+                f"**Unique:** {len(msg.reactions)}"
+            )
+            reactions.append(
+                f"**Members:** {react_users}"
+            )
+        fields = {"DETAILS":'\n'.join(details)}
+        if reactions:
+            fields['REACTIONS'] = '\n'.join(reactions)
+        if mentions:
+            fields['MENTIONS'] = '\n'.join(mentions)
+        await ctx.embed(f"Message {message_id}", fields=fields, inline=True)
+        if msg.reactions:
+            reaction_list = [f'{r} x {r.count}' for r in msg.reactions]
+            await ctx.send(f"**Reactions:** {', '.join(reaction_list)}")
+        if msg.content:
+            await ctx.codeblock(msg.content, '', title='Content')
+        for embed in msg.embeds:
+            embed_json = json.dumps(embed.to_dict(), indent=4)
+            await ctx.codeblock(embed_json, 'json', title='Embed')
+        for att in msg.attachments:
+            data = {a: getattr(att, a) for a in att.__slots__ if a[0] != '_'}
+            att_json = json.dumps(data, indent=4)
+            await ctx.codeblock(att_json, 'json', 'Attachment')
+
+    @group(invoke_without_command=True, name="db")
+    async def database_(self, ctx):
+        tables = await ctx.bot.dbi.tables()
+        tables_str = [t['table_name'] for t in tables]
+        await ctx.info('Database Tables', '\n'.join(tables_str))
+
+    @database_.command(name='table')
+    async def table_(self, ctx, *table_names):
+        if not table_names:
+            return await ctx.error('No table selected!')
+
+        get = ctx.bot.dbi.table
+
+        tables = await ctx.bot.dbi.tables()
+        tables = [t['table_name'] for t in tables]
+        tables = [get(t) for t in tables if t in table_names]
+
+        if not tables:
+            await ctx.error("I couldn't find any by that name.")
+
+        table_data = {}
+        for table in tables:
+            cols = await table.columns.get_names()
+
+            if not cols:
+                continue
+
+            if len(tables) == 1:
+                col_data = await table.columns.info(*cols)
+                col_info = []
+                for col in col_data:
+                    name = ['column_name']
+                    col_type = col['']
+                    col_default = col['column_default']
+                print(col_data)
+                table_data[table] = '\n'.join(cols)
+            else:
+                table_data[table] = '\n'.join(cols)
+
+        if not table_data:
+            return await ctx.error('No data found, sorry!')
+
+        if len(table_data) == 1:
+            table_name, table_cols = table_data.popitem()
+            await ctx.info(f"Table '{table_name}'", table_cols)
+        else:
+            title = 'Table Information'
+
+            await ctx.info(title, fields=table_data, inline=True)
+
+
+    @command()
+    @checks.is_co_owner()
+    async def sql(self, ctx, *, query):
+        results = await ctx.bot.dbi.execute_transaction(query)
+        if len(results) == 1:
+            results = results[0]
+        await ctx.codeblock(str(results), "")
