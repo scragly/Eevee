@@ -166,7 +166,7 @@ class Pagination:
             return
 
         self.message = await self.channel.send(embed=self.embed)
-        for (reaction, _) in self.reaction_emojis:
+        for (reaction, __) in self.reaction_emojis:
             if self.maximum_pages == 2 and reaction in ('\u23ed', '\u23ee'):
                 continue
 
@@ -424,7 +424,7 @@ class Pagination:
             self.description = f'{command.description}\n\n{command.help}'
         else:
             self.description = command.help or 'No help given.'
-        
+
         if command.checks:
             self.requirements = self._command_requirements(command)
 
@@ -480,7 +480,7 @@ class Pagination:
         self._is_bot = True
 
         # replace the actual total
-        self.total = sum(len(o) for _, _, o in nested_pages)
+        self.total = sum(len(o) for __, __, o in nested_pages)
         return self
 
         cls.reaction_emojis.append(
