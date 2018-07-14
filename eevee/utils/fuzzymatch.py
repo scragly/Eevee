@@ -14,12 +14,20 @@ def get_match(word_list: list, word: str, score_cutoff: int = 60):
         return (None, None)
     return result
 
+def get_matches(word_list: list, word: str, score_cutoff: int = 80):
+    """Uses fuzzywuzzy to see if word is close to entries in word_list
+
+    Returns a list of tuples with (MATCH, SCORE)
+    """
+    return process.extractBests(
+        word, word_list, scorer=fuzz.ratio, score_cutoff=score_cutoff)
+
 class FuzzyEnum(Enum):
     """Enumeration with fuzzy-matching classmethods."""
 
     @classmethod
     def name_list(cls):
-        return [name for name, _ in cls.__members__.items()]
+        return list(cls.__members__.keys())
 
     @classmethod
     def value_list(cls):
