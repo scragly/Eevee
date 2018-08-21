@@ -14,7 +14,6 @@ from discord.utils import cached_property
 from discord.ext import commands
 
 from eevee import config
-from eevee.core.cog_base import NewCog
 from eevee.core.context import Context
 from eevee.core.data_manager import DatabaseInterface, DataManager
 from eevee.utils import ExitCodes, pagination, fuzzymatch, make_embed
@@ -391,13 +390,4 @@ def group(*args, **kwargs):
         func.command_category = category
         result = commands.group(*args, **kwargs)(func)
         return result
-    return decorator
-
-def cog(name, cls=None, **kwargs):
-    if not cls:
-        cls = NewCog
-    def decorator(Cls):
-        cname = name or Cls.__class__.__name__
-        cog_instance = cls(name=cname, callback=Cls, **kwargs)
-        return cog_instance
     return decorator
