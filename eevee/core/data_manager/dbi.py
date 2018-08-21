@@ -1,4 +1,5 @@
 import logging
+import json
 
 import asyncpg
 
@@ -7,6 +8,14 @@ from discord.ext.commands import when_mentioned_or
 from .schema import Table, Query, Insert, Update
 from .tables import core_table_sqls
 from . import sqltypes
+
+logger = logging.getLogger('eevee.dbi')
+
+async def init_conn(conn):
+    await conn.set_type_codec(
+        "jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
+    await conn.set_type_codec(
+        "json", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
 
 class DatabaseInterface:
     """Get, Create and Edit data in the connected database."""
@@ -26,17 +35,18 @@ class DatabaseInterface:
         self.settings_conn = None
         self.settings_stmt = None
         self.types = sqltypes
-        self.log = logging.getLogger('eevee.core.dbi.DatabaseInterface')
 
     async def start(self, loop=None):
         if loop:
             self.loop = loop
-        self.pool = await asyncpg.create_pool(self.dsn, loop=loop)
+        self.pool = await asyncpg.create_pool(
+            self.dsn, loop=loop, init=init_conn)
         await self.prepare()
 
     async def recreate_pool(self):
-        self.log.warning(f'Re-creating closed database pool.')
-        self.pool = await asyncpg.create_pool(self.dsn, loop=self.loop)
+        logger.warning(f'Re-creating closed database pool.')
+        self.pool = await asyncpg.create_pool(
+            self.dsn, loop=self.loop, init=init_conn)
 
     async def prepare(self):
         # ensure tables exists
@@ -58,9 +68,9 @@ class DatabaseInterface:
         for k, v in core_sql.items():
             table_exists = await self.table(k).exists()
             if not table_exists:
-                self.log.warning(f'Core table {k} not found. Creating...')
+                logger.warning(f'Core table {k} not found. Creating...')
                 await self.execute_transaction(v)
-                self.log.warning(f'Core table {k} created.')
+                logger.warning(f'Core table {k} created.')
 
     async def stop(self):
         conns = (self.prefix_conn, self.settings_conn)
@@ -98,7 +108,7 @@ class DatabaseInterface:
                     result.append(rcrd)
             return result
         except asyncpg.exceptions.InterfaceError as e:
-            self.log.error(f'Exception {type(e)}: {e}')
+            logger.error(f'Exception {type(e)}: {e}')
             await self.recreate_pool()
             return await self.execute_query(query, *query_args)
 
