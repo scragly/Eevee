@@ -2,8 +2,6 @@ import itertools
 import os
 import platform
 import logging
-import inspect
-import importlib
 from collections import Counter
 from datetime import datetime
 
@@ -295,7 +293,7 @@ class Eevee(commands.AutoShardedBot):
             print(f"Discord.py Version: {self.dpy_version}")
             print(f"Platform: {self.platform}\n")
         guilds = len(self.guilds)
-        users = len(list(self.get_all_members()))
+        users = sum([g.member_count for g in self.guilds])
         if guilds:
             print(f"Servers: {guilds}")
             print(f"Members: {users}")
