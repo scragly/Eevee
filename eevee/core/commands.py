@@ -264,6 +264,10 @@ class Core:
             'MB':1048576,
             'GB':1073741824
         }
+
+        p_mem_str = "{} B".format(p_mem)
+        swap_str = "{} B".format(swapped)
+
         for size, value in data_sizes.items():
             if (p_mem / value) > 1 < 1024:
                 p_mem_str = "{} {}".format(
