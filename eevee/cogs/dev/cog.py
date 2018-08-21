@@ -357,15 +357,9 @@ class Dev:
             react_users = 0
             for reaction in msg.reactions:
                 react_users += len(await reaction.users().flatten())
-            reactions.append(
-                f"**Total:** {react_total}"
-            )
-            reactions.append(
-                f"**Unique:** {len(msg.reactions)}"
-            )
-            reactions.append(
-                f"**Members:** {react_users}"
-            )
+            reactions.append(f"**Total:** {react_total}")
+            reactions.append(f"**Unique:** {len(msg.reactions)}")
+            reactions.append(f"**Members:** {react_users}")
         fields = {"DETAILS":'\n'.join(details)}
         if reactions:
             fields['REACTIONS'] = '\n'.join(reactions)
