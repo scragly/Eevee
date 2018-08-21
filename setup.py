@@ -29,7 +29,9 @@ setup(
         'psutil',
         'aiocontextvars',
         'colorthief',
-        'more_itertools'
+        'more_itertools',
+        'numpy',
+        'pendulum'
     ],
 
     dependency_links=[
