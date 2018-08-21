@@ -21,7 +21,7 @@ from discord.ext.commands import Paginator
 
 from eevee import command, group, checks, Cog
 from eevee.utils import make_embed, get_match, cvtest
-from eevee.utils.converters import Guild
+from eevee.utils.converters import Guild, Multi
 from eevee.utils.formatters import bold
 from eevee.core.data_manager import errors
 
@@ -110,29 +110,6 @@ class Tests(Cog):
     async def getemoji(self, ctx):
         """Get an emoji from any connected server."""
         await ctx.send(str(ctx.guild.emojis))
-
-    @command()
-    async def ask_test(self, ctx, *, options: str = None):
-        cek = '\u20e3'
-        # react_dict = {
-        #     "1" : {
-        #         "emoji":"1"+cek,
-        #         "value":1
-        #     },
-        #     "2" : {
-        #         "emoji":"2"+cek,
-        #         "value":2
-        #     },
-        #     "3" : {
-        #         "emoji":"3"+cek,
-        #         "value":3
-        #     }
-        # }
-        react_dict = None # comment out to test custom react_dict
-        options = options.split(' ') if options else None
-        response = await ctx.ask(
-            'pls confirm', timeout=10, options=options)
-        await ctx.send(str(response))
 
     def process_template(self, message, author, guild):
         def template_replace(match):
@@ -454,6 +431,7 @@ class Tests(Cog):
         msg_table.query.where(deleted=True)
         msg_table.query.order_by('message_id', 'sent', asc=False)
         msg_table.query.limit(count)
+        print(msg_table.query.sql())
         messages = await msg_table.query.get()
 
         if not messages:
@@ -467,10 +445,11 @@ class Tests(Cog):
             date_str = date.strftime('%Y-%m-%d %H:%M:%S')
             content = msg['clean_content']
             embeds = msg['embeds']
+            attachments = msg['attachments']
             if len(embeds) > 1:
                 embed_content = f'{len(embeds)} Embeds'
             elif embeds:
-                embed = json.loads(embeds[0])
+                embed = embeds[0]
                 embed_content = []
                 if embed.get('author'):
                     embed_content.append(
@@ -493,6 +472,13 @@ class Tests(Cog):
                     embed_content = '1 Embed'
 
                 content += f"\n**Embeds:**\n{embed_content}"
+
+            if attachments:
+                att_content = '\n'.join(attachments)
+                content += f"\n**Attachments:**\n{att_content}"
+
+            if not content:
+                content = "No content"
 
             msg_data[f"{author.display_name} | {date_str}"] = content
 
@@ -577,3 +563,57 @@ class Tests(Cog):
 
         for img in imgs:
             await ctx.send(file=discord.File(img, filename='circle.png'))
+
+    @command()
+    async def addrequest(self, ctx, title, *, content):
+        uv = ctx.get.emoji('upvote')
+        dv = ctx.get.emoji('downvote')
+        msg = await ctx.embed(title, content)
+        await msg.add_reaction(uv)
+        await asyncio.sleep(0.5)
+        await msg.add_reaction(dv)
+        await ctx.message.delete()
+
+    @command()
+    async def clonechannel(self, ctx, channel_id: int):
+        channel = ctx.get.channel(channel_id)
+        if not channel:
+            return await ctx.error('No Channel Found')
+        ch_types = {
+            discord.TextChannel : discord.ChannelType.text,
+            discord.VoiceChannel : discord.ChannelType.voice,
+            discord.CategoryChannel : discord.ChannelType.category
+        }
+        channel_type = ch_types[type(channel)]
+        await ctx.guild._create_channel(
+            channel.name, dict(channel.overwrites), channel_type,
+            channel.category, "Clone Test")
+
+    @command()
+    async def uniontest(self, ctx, test: Multi(discord.Member, discord.TextChannel, int),  *, test_content=None):
+        await ctx.send(str(type(test)))
+
+    @command()
+    async def ask_test(self, ctx, *, options: str = None):
+        options = options.split(' ') if options else None
+        response = await ctx.ask(
+            'pls confirm', timeout=10, options=options)
+        await ctx.send(str(response))
+
+    @command()
+    async def movechan(self, ctx, position: int, channel: discord.TextChannel):
+        await channel.edit(position=position)
+        await ctx.ok()
+
+    @command()
+    async def sortchan(self, ctx, reverse: bool = False):
+        """Sort the current categories channels by alphabetical order."""
+        channels = enumerate(sorted(
+            ctx.channel.category.channels,
+            key=lambda item: item.name,
+            reverse=reverse))
+
+        for position, channel in channels:
+            await channel.edit(position=position)
+
+        await ctx.ok()
