@@ -60,10 +60,10 @@ class Core:
         except discord.HTTPException:
             restart_msg = None
         data = {
-            'restart_snowflake': next(snowflake.create()),
-            'restart_by':ctx.author.id,
-            'restart_channel':ctx.channel.id,
-            'restart_guild':ctx.guild.id
+            'restart_snowflake' : next(snowflake.create()),
+            'restart_by'        : ctx.author.id,
+            'restart_channel'   : ctx.channel.id,
+            'restart_guild'     : ctx.guild.id if ctx.guild else None
         }
         if restart_msg:
             data['restart_message'] = restart_msg.id
@@ -85,7 +85,7 @@ class Core:
         """Sets Eevee's game status"""
         status = ctx.me.status
         game = discord.Game(name=game)
-        await ctx.bot.change_presence(status=status, game=game)
+        await ctx.bot.change_presence(status=status, activity=game)
         embed = make_embed(msg_type='success', title='Game set.')
         await ctx.send(embed=embed)
 
