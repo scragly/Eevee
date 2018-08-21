@@ -184,58 +184,45 @@ class Context(commands.Context):
         if not custom_reacts:
             cek = '\u20e3'
             react_dict = {
-                "1" : {
-                    "emoji":"1"+cek,
-                    "value":1
-                },
-                "2" : {
-                    "emoji":"2"+cek,
-                    "value":2
-                },
-                "3" : {
-                    "emoji":"3"+cek,
-                    "value":3
-                },
-                "4" : {
-                    "emoji":"4"+cek,
-                    "value":4
-                },
-                "5" : {
-                    "emoji":"5"+cek,
-                    "value":5
-                },
-                "a" : {
-                    "emoji":"\U0001f1e6",
-                    "value":"a"
-                },
-                "b" : {
-                    "emoji":"\U0001f1e7",
-                    "value":"b"
-                },
-                "c" : {
-                    "emoji":"\U0001f1e8",
-                    "value":"c"
-                },
-                "d" : {
-                    "emoji":"\U0001f1e9",
-                    "value":"d"
-                },
-                "e" : {
-                    "emoji":"\U0001f1ea",
-                    "value":"e"
-                },
-                "true" : {
-                    "emoji":"\u2705",
-                    "value":True
-                },
-                "false" : {
-                    "emoji":"\u274e",
-                    "value":False
-                },
-                "cancel" : {
-                    "emoji":"\U0001f6ab",
-                    "value":None
-                },
+                "1" : {"emoji":"1"+cek, "value":1},
+                "2" : {"emoji":"2"+cek, "value":2},
+                "3" : {"emoji":"3"+cek, "value":3},
+                "4" : {"emoji":"4"+cek, "value":4},
+                "5" : {"emoji":"5"+cek, "value":5},
+                "6" : {"emoji":"6"+cek, "value":6},
+                "7" : {"emoji":"7"+cek, "value":7},
+                "8" : {"emoji":"8"+cek, "value":8},
+                "9" : {"emoji":"9"+cek, "value":9},
+                "10" : {"emoji":"\U0001f51f", "value":10},
+                "a" : {"emoji":"\U0001f1e6", "value":"a"},
+                "b" : {"emoji":"\U0001f1e7", "value":"b"},
+                "c" : {"emoji":"\U0001f1e8", "value":"c"},
+                "d" : {"emoji":"\U0001f1e9", "value":"d"},
+                "e" : {"emoji":"\U0001f1ea", "value":"e"},
+                "f" : {"emoji":"\U0001f1eb", "value":"f"},
+                "g" : {"emoji":"\U0001f1ec", "value":"g"},
+                "h" : {"emoji":"\U0001f1ed", "value":"h"},
+                "i" : {"emoji":"\U0001f1ee", "value":"i"},
+                "j" : {"emoji":"\U0001f1ef", "value":"j"},
+                "k" : {"emoji":"\U0001f1f0", "value":"k"},
+                "l" : {"emoji":"\U0001f1f1", "value":"l"},
+                "m" : {"emoji":"\U0001f1f2", "value":"m"},
+                "n" : {"emoji":"\U0001f1f2", "value":"n"},
+                "o" : {"emoji":"\U0001f1f4", "value":"o"},
+                "p" : {"emoji":"\U0001f1f5", "value":"p"},
+                "q" : {"emoji":"\U0001f1f6", "value":"q"},
+                "r" : {"emoji":"\U0001f1f7", "value":"r"},
+                "s" : {"emoji":"\U0001f1f8", "value":"s"},
+                "t" : {"emoji":"\U0001f1f9", "value":"t"},
+                "u" : {"emoji":"\U0001f1fa", "value":"u"},
+                "v" : {"emoji":"\U0001f1fb", "value":"v"},
+                "w" : {"emoji":"\U0001f1fc", "value":"w"},
+                "x" : {"emoji":"\U0001f1fd", "value":"x"},
+                "y" : {"emoji":"\U0001f1fe", "value":"y"},
+                "z" : {"emoji":"\U0001f1ff", "value":"z"},
+                "true" : {"emoji":"\u2705", "value":True},
+                "false" : {"emoji":"\u274e", "value":False},
+                "cancel" : {"emoji":"\U0001f6ab", "value":None},
             }
 
         destination = destination or self.channel
@@ -260,10 +247,10 @@ class Context(commands.Context):
 
         author_id = author_id or self.author.id
 
-        def check(emoji, message_id, channel_id, user_id):
-            if message_id != msg.id or user_id != author_id:
+        def check(reaction, user):
+            if reaction.message.id != msg.id or user.id != author_id:
                 return False
-            return is_valid_emoji(str(emoji))
+            return is_valid_emoji(str(reaction.emoji))
 
         for emoji in emoji_list:
             # str cast in case of _ProxyEmoji
@@ -272,7 +259,7 @@ class Context(commands.Context):
             await msg.add_reaction(emoji)
 
         try:
-            emoji, *__, = await self.bot.wait_for('raw_reaction_add', check=check, timeout=timeout)
+            emoji, *__, = await self.bot.wait_for('reaction_add', check=check, timeout=timeout)
             # str cast in case of _ProxyEmojis
             return emoji_lookup[str(emoji)]
         except asyncio.TimeoutError:
