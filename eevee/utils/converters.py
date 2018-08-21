@@ -1,3 +1,4 @@
+from inspect import signature
 from discord.ext import commands
 
 class BotCommand:
@@ -28,11 +29,16 @@ class Multi(commands.Converter):
         self.types = types
 
     async def convert(self, ctx, arg):
+        # credits to MIkusaba
+        parameters = list(ctx.command.params.values())
+        index = min(len(ctx.args) + len(ctx.kwargs), len(parameters) - 1)
+        param = parameters[index]
+        print(param)
         for type_ in self.types:
             try:
-                return await ctx.command.do_conversion(ctx, type_, arg)
+                return await ctx.command.do_conversion(ctx, type_, arg, param)
             except Exception as e:
-                continue
+                print(f"Exception {type(e)}: {e}")
         type_names = ', '.join([t.__name__ for t in self.types])
         raise commands.BadArgument(
             f"{arg} was not able to convert to the following types: "
