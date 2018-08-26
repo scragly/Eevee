@@ -133,7 +133,7 @@ class Dev:
 
             if ret is None:
                 if value:
-                    await ctx.codeblock(p)
+                    await ctx.codeblock(value)
             else:
                 self._last_result = ret
                 await ctx.codeblock(f"{value}{ret}")
