@@ -451,4 +451,4 @@ class Dev:
         ctx.git_cmd.append('pull')
 
         p = Popen(ctx.git_cmd, stdout=PIPE, cwd=ctx.git_path)
-        return p.stdout.read().decode("utf-8")
+        await ctx.codeblock(p.stdout.read().decode("utf-8"), syntax="")
