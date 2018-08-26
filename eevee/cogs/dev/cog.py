@@ -443,7 +443,7 @@ class Dev:
     @group()
     @checks.is_owner()
     async def git(self, ctx):
-        ctx.git_path = os.path.dirname(bot.eevee_dir)
+        ctx.git_path = os.path.dirname(ctx.bot.eevee_dir)
         ctx.git_cmd = ['git']
 
     @git.command()
