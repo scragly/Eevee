@@ -8,6 +8,7 @@ import json
 import logging
 from datetime import datetime
 from contextlib import redirect_stdout
+from subprocess import Popen, PIPE
 
 import pathlib
 
@@ -437,3 +438,17 @@ class Dev:
         if len(results) == 1:
             results = results[0]
         await ctx.codeblock(str(results), "")
+
+
+    @group()
+    @checks.is_owner()
+    async def git(self, ctx):
+        ctx.git_path = os.path.dirname(bot.eevee_dir)
+        ctx.git_cmd = ['git']
+
+    @git.command()
+    async def pull(self, ctx):
+        ctx.git_cmd.append('pull')
+
+        p = Popen(ctx.git_cmd, stdout=PIPE, cwd=ctx.git_path)
+        return p.stdout.read().decode("utf-8")
