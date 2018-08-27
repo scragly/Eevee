@@ -260,4 +260,5 @@ def setup(bot):
         }
     ]
 
+    print('sending tables to setup')
     return [lang_table, team_table, team_names_table]
