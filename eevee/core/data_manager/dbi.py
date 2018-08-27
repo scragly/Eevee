@@ -140,8 +140,7 @@ class DatabaseInterface:
         return Table(name, self)
 
     def query(self, *tables):
-        tables = [Table(self, name) for name in tables]
-        return Query(self, tables)
+        return Query(self, *tables)
 
     def insert(self, table):
         return Insert(self, table)
