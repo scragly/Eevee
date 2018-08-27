@@ -183,7 +183,10 @@ class Column:
     @property
     def to_sql(self):
         sql = []
-        sql.append(self.name)
+        if self.table:
+            sql.append(f"{self.table}.{self.name}")
+        else:
+            sql.append(self.name)
         sql.append(self.data_type.to_sql())
         if self.default is not None:
             if isinstance(self.default, str) and isinstance(self.data_type, str):
