@@ -660,7 +660,7 @@ class Query:
     def group_by(self, *columns):
         for col in columns:
             if isinstance(col, Column):
-                self._group_by.append(col.name)
+                self._group_by.append(col.full_name)
             elif isinstance(col, str):
                 self._group_by.append(col)
         return self
@@ -674,7 +674,7 @@ class Query:
             sort = ''
         for col in columns:
             if isinstance(col, Column):
-                self._order_by.append(f"{col.name}{sort}")
+                self._order_by.append(f"{col.full_name}{sort}")
             elif isinstance(col, str):
                 self._order_by.append(f"{col}{sort}")
         return self
