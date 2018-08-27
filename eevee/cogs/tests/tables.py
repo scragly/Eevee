@@ -260,4 +260,4 @@ def setup(bot):
         }
     ]
 
-    return [team_table, team_names_table]
+    return [lang_table, team_table, team_names_table]
