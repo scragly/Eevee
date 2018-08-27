@@ -1,11 +1,12 @@
 import asyncio
+import json
 import os
 import sys
-import json
 import time
-from datetime import timezone
+import traceback
 import logging
 from logging import handlers
+from datetime import timezone
 
 import asyncpg
 import discord
@@ -104,7 +105,8 @@ class DBLogHandler(logging.Handler):
                     func_name=str(record.funcName),
                     line_no=record.lineno,
                     message=str(record.message),
-                    traceback=str(record.exc_info))
+                    traceback='\n'.join(
+                        traceback.format_exception(*record.exc_info)))
         try:
             table = self.bot.dbi.table(self.log_name)
             table.insert(**data)
