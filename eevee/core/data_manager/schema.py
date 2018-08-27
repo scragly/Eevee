@@ -118,11 +118,15 @@ class Column:
         self.table = table
         self.aggregate = None
 
+    @property
+    def full_name(self):
+        return f"{self.table}.{self.name}" if self.table else self.name
+
     def __str__(self):
         if self.aggregate:
-            return f"{self.aggregate} ({self.name})"
+            return f"{self.aggregate} ({self.full_name})"
         else:
-            return self.name
+            return self.full_name
 
     def __lt__(self, value):
         return SQLComparison(
@@ -183,10 +187,7 @@ class Column:
     @property
     def to_sql(self):
         sql = []
-        if self.table:
-            sql.append(f"{self.table}.{self.name}")
-        else:
-            sql.append(self.name)
+        sql.append(self.full_name)
         sql.append(self.data_type.to_sql())
         if self.default is not None:
             if isinstance(self.default, str) and isinstance(self.data_type, str):
@@ -572,8 +573,11 @@ class SQLConditions:
                     continue
                 data = dict(column=condition.column)
                 if condition.value is not None:
-                    data.update(value=f"${self._count}")
-                    self.values.append(condition.value)
+                    if isinstance(condition.value, Column):
+                        data.update(str(condition.value))
+                    else:
+                        data.update(value=f"${self._count}")
+                        self.values.append(condition.value)
                 else:
                     data.update(minvalue=f"${self._count}")
                     self.values.append(condition.minvalue)
