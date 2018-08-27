@@ -105,7 +105,7 @@ class DBLogHandler(logging.Handler):
                     func_name=str(record.funcName),
                     line_no=record.lineno,
                     message=str(record.message),
-                    traceback='\n'.join(
+                    traceback=''.join(
                         traceback.format_exception(*record.exc_info)))
         try:
             table = self.bot.dbi.table(self.log_name)
