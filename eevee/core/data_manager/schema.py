@@ -615,7 +615,7 @@ class Query:
         self._sort = ''
         self._from = set()
         if tables:
-            self.table(tables)
+            self.table(*tables)
         self._limit = None
         self._offset = None
         self.conditions = SQLConditions(parent=self)
