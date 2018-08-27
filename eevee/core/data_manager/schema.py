@@ -336,7 +336,9 @@ class TableColumns:
 
     async def get_primaries(self):
         kcu = Table('information_schema.key_column_usage', self._dbi)
-        query = kcu.query('column_name').where(TABLE_NAME=self._table.name)
+        query = kcu.query('column_name').where(
+            table_name=self._table.name,
+            constraint_name=f"{self._table.name}_pkey")
         return await query.get_values()
 
 class Table:
