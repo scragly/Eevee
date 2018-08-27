@@ -22,6 +22,7 @@ from eevee.utils.converters import BotCommand, Guild, Multi
 
 logger = logging.getLogger('eevee.cogs.dev')
 
+
 class Dev:
     """Developer Tools"""
 
@@ -452,3 +453,21 @@ class Dev:
 
         p = Popen(ctx.git_cmd, stdout=PIPE, cwd=ctx.git_path)
         await ctx.codeblock(p.stdout.read().decode("utf-8"), syntax="")
+
+    @command()
+    async def last_exception(self, ctx, count=1):
+        table = ctx.bot.dbi.table('eevee_logs')
+        query = table.query.order_by('created', asc=False).limit(count)
+        results = await query.get()
+        output = []
+        for rcrd in results:
+            details = []
+            if rcrd['module'] != '<string>':
+                details.append(f"Module: {rcrd['module']}")
+            details.append(f"Function: {rcrd['func_name']}")
+            details.append(datetime.utcfromtimestamp(
+                rcrd['created']).strftime('%Y-%m-%d %H:%M:%S'))
+            output.append(" | ".join(details))
+            output.append(rcrd['traceback'])
+            output.append('-'*40)
+        await ctx.codeblock('\n'.join(output))
