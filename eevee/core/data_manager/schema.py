@@ -606,7 +606,7 @@ class SQLConditions:
 
 class Query:
     """Builds a database query."""
-    def __init__(self, dbi, table=None):
+    def __init__(self, dbi, *tables):
         self._dbi = dbi
         self._select = ['*']
         self._distinct = False
@@ -614,8 +614,8 @@ class Query:
         self._order_by = []
         self._sort = ''
         self._from = set()
-        if table:
-            self.table(table)
+        if tables:
+            self.table(tables)
         self._limit = None
         self._offset = None
         self.conditions = SQLConditions(parent=self)
