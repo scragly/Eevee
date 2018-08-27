@@ -574,7 +574,7 @@ class SQLConditions:
                 data = dict(column=condition.column)
                 if condition.value is not None:
                     if isinstance(condition.value, Column):
-                        data.update(str(condition.value))
+                        data.update(value=str(condition.value))
                     else:
                         data.update(value=f"${self._count}")
                         self.values.append(condition.value)
