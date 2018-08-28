@@ -391,7 +391,7 @@ class Table:
         """Generate SQL for creating the table."""
         sql = []
         if self.schema:
-            sql.append(self.schema.sql())
+            sql.append(str(self.schema.sql()))
             sql.append('\n')
         sql.append(f"CREATE TABLE {self.full_name} (")
         if not columns:
@@ -408,7 +408,7 @@ class Table:
                 sql.append(f", CONSTRAINT {self.name}_pkey"
                            f" PRIMARY KEY ({', '.join(primaries)})")
         sql.append(")")
-        return sql
+        return ''.join(sql)
 
     async def create(self, *columns, primaries=None):
         """Create table and return the object representing it."""
