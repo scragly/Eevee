@@ -791,8 +791,8 @@ class Insert:
     def sql_test(self, do_update=None):
         """SQL test output"""
         sql, data = self.sql(do_update)
-        data_str = '\n'.join(str(d) for d in data)
-        msg = f" ```\n**SQL**```sql\n{sql}\n```\n**Data**```py\n{data_str}\n"
+        data_str = ',\n'.join(str(d) for d in data)
+        msg = f"**SQL**```sql\n{sql}\n```\n**Data**```py\n{data_str}\n```"
         return msg
 
     async def commit(self, do_update=None):
