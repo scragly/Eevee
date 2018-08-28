@@ -303,12 +303,16 @@ class Schema:
             sql += " CASCADE"
         return await self.dbi.execute_transaction(sql, self.name)
 
-    async def create(self, skip_if_exists=True):
+    def sql(self, skip_if_exists=True):
         if skip_if_exists:
             sql = "CREATE SCHEMA IF NOT EXISTS $1"
         else:
             sql = "CREATE SCHEMA $1"
-        await self.dbi.execute_transaction(sql, self.name)
+        return (sql, self.name)
+
+    async def create(self, skip_if_exists=True):
+        sql, value = self.sql(skip_if_exists)
+        await self.dbi.execute_transaction(sql, value)
         return self
 
 class TableColumns:
@@ -383,20 +387,27 @@ class Table:
             return self.name == other.name
         return False
 
-    @classmethod
-    def create_sql(cls, name, *columns, primaries=None):
+    def sql(self, *columns, primaries=None):
         """Generate SQL for creating the table."""
-        sql = f"CREATE TABLE {name} ("
-        sql += ', '.join(col.to_sql for col in columns)
+        sql = []
+        if self.schema:
+            sql.append(self.schema.sql())
+            sql.append('\n')
+        sql.append(f"CREATE TABLE {self.full_name} (")
+        if not columns:
+            if not self.new_columns:
+                raise SchemaError("No columns for created table.")
+            columns = self.new_columns
+        sql.append(', '.join(col.to_sql for col in columns))
         if not primaries:
             primaries = [col.name for col in columns if col.primary_key]
         if primaries:
             if isinstance(primaries, str):
-                sql += f", CONSTRAINT {name}_pkey PRIMARY KEY ({primaries})"
+                sql.append(f", CONSTRAINT {self.name}_pkey PRIMARY KEY ({primaries})")
             elif isinstance(primaries, (list, tuple, set)):
-                sql += (f", CONSTRAINT {name}_pkey"
-                        f" PRIMARY KEY ({', '.join(primaries)})")
-        sql += ")"
+                sql.append(f", CONSTRAINT {self.name}_pkey"
+                           f" PRIMARY KEY ({', '.join(primaries)})")
+        sql.append(")")
         return sql
 
     async def create(self, *columns, primaries=None):
