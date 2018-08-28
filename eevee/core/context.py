@@ -40,9 +40,9 @@ class Context(commands.Context):
             f"Content:\n{content}")
 
     async def codeblock(self, contents, syntax="py", send=True, title=None):
-        paginator = commands.Paginator(prefix=f'```{syntax}', max_size=1997)
+        paginator = commands.Paginator(prefix=f'```{syntax}', max_size=2000)
         for line in contents.split('\n'):
-            for wrapline in textwrap.wrap(line, width=1997):
+            for wrapline in textwrap.wrap(line, width=1990):
                 paginator.add_line(wrapline.rstrip().replace('`', '\u200b`'))
         if not send:
             return paginator.pages
