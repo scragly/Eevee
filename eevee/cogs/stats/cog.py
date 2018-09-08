@@ -4,11 +4,12 @@ import typing
 
 import discord
 import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 
 if os.name != 'nt':
     matplotlib.use('Agg')
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 from eevee import checks, command
 from eevee.utils.converters import Guild
