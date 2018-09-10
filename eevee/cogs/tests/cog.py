@@ -192,9 +192,20 @@ class Tests(Cog):
     async def get_member(self, ctx, *, member: discord.Member):
         await ctx.send(f"{member.name} - {member.id}")
 
-    @command()
-    async def avy(self, ctx, member: discord.Member, size: bitround = 1024):
-        await ctx.send(member.avatar_url_as(size=size, static_format='png'))
+    @command(aliases=['avatar'])
+    async def avy(self, ctx, member: discord.Member = None,
+                  size: bitround = 1024):
+        member = member or ctx.author
+        avy_url = member.avatar_url_as(size=size, static_format='png')
+        try:
+            colour = await utils.user_color(member)
+        except OSError:
+            colour = ctx.me.colour
+        await ctx.embed(
+            f"{member.display_name}'s Avatar",
+            title_url=avy_url,
+            image=avy_url,
+            colour=colour)
 
     @command()
     async def delete_msg(self, ctx, *message_ids: int):
