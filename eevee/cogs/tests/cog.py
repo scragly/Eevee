@@ -1,29 +1,31 @@
-import re
-import os
-import sys
 import asyncio
-import json
-import async_timeout
-import pkgutil
-import numpy
-import random
-import subprocess
 import datetime
+import json
+import os
+import pkgutil
+import random
+import re
+import subprocess
+import sys
 import time
-import pendulum
-from PIL import Image, ImageDraw, ImageOps
 from io import BytesIO
-from aiocontextvars import ContextVar
 
+import async_timeout
 import discord
+import numpy
+import pendulum
+
+from aiocontextvars import ContextVar
+from PIL import Image, ImageDraw, ImageOps
+
 from discord.ext import commands
 from discord.ext.commands import Paginator
 
-from eevee import command, group, checks, Cog
-from eevee.utils import make_embed, get_match, cvtest
+from eevee import Cog, checks, command, group
+from eevee.core.data_manager import errors
+from eevee.utils import cvtest, get_match, make_embed, user_color
 from eevee.utils.converters import Guild, Multi
 from eevee.utils.formatters import bold
-from eevee.core.data_manager import errors
 
 PBOT_APPID = 'un08c68977'
 PBOT_UKEY = 'd6ec6b1babce597b27050962926f3a4c'
@@ -198,7 +200,7 @@ class Tests(Cog):
         member = member or ctx.author
         avy_url = member.avatar_url_as(size=size, static_format='png')
         try:
-            colour = await utils.user_color(member)
+            colour = await user_color(member)
         except OSError:
             colour = ctx.me.colour
         await ctx.embed(
