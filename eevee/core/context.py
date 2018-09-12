@@ -118,14 +118,19 @@ class Context(commands.Context):
         return await self.embed(
             title, details, msg_type='warning', send=send, **options)
 
-    async def embed(self, title, description=None, plain_msg='', *,
+    async def embed(self, title=None, description=None, plain_msg='', *,
                     msg_type=None, title_url=None, colour=None,
                     icon=None, thumbnail='', image='', fields: dict = None,
-                    footer=None, footer_icon=None, send=True, inline=False):
+                    footer=None, footer_icon=None, send=True, inline=False,
+                    embed=None):
         """Send or build an embed using context details."""
-        embed = make_embed(title=title, content=description, msg_type=msg_type,
-                           title_url=title_url, msg_colour=colour, icon=icon,
-                           thumbnail=thumbnail, image=image, guild=self.guild)
+        if not embed:
+            embed = make_embed(
+                title=title, content=description, msg_type=msg_type,
+                title_url=title_url, msg_colour=colour, icon=icon,
+                thumbnail=thumbnail, image=image, guild=self.guild)
+        else:
+            embed.colour = colour or self.guild.me.colour
         if fields:
             for key, value in fields.items():
                 ilf = inline

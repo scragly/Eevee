@@ -260,3 +260,7 @@ class PublicTests:
         if not await checks.check_is_owner(ctx):
             return await ctx.info('Bot Co-Owner')
         return await ctx.info('Bot Owner')
+
+    @command(aliases=["hello", "g'day", "gday", "whatsupcobba", "topofthemorning", "hola"])
+    async def hi(self, ctx):
+        await ctx.embed(f"Hi {ctx.author.display_name} \U0001f44b")

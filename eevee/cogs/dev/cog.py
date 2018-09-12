@@ -16,7 +16,7 @@ import discord
 from discord.ext import commands
 
 from eevee import checks, command, group
-from eevee.utils import make_embed, get_match
+from eevee.utils import make_embed, get_match, cleanup_code
 from eevee.utils.formatters import ilcode
 from eevee.utils.converters import BotCommand, Guild, Multi
 
@@ -30,8 +30,8 @@ class Dev:
         self.bot = bot
         self._last_result = None
         self.bot.config.command_categories['Developer'] = {
-            "index" : "6",
-            "description" : "Developer Tools"
+            "index": "6",
+            "description": "Developer Tools"
         }
 
     def __local_check(self, ctx):
@@ -55,8 +55,8 @@ class Dev:
             f"{total_count} Lines Total\n"
             f"{max_count} Most Lines\n\n"
             f"**{total_files} Files Total**\n"
-            f"{py_count} **\*.py** files ({py_pc}%)\n"
-            f"{json_count} **\*.json** files ({json_pc}%)")
+            f"{py_count} **\\*.py** files ({py_pc}%)\n"
+            f"{json_count} **\\*.json** files ({json_pc}%)")
 
     @command(category='Developer')
     async def charinfo(self, ctx, *, characters: str):
@@ -82,15 +82,6 @@ class Dev:
             embed.add_field(name='Raw', value=ilcode(''.join(rawlist)), inline=False)
         await ctx.send(embed=embed)
 
-    def cleanup_code(self, content):
-        """Automatically removes code blocks from the code."""
-        # remove ```py\n```
-        if content.startswith('```') and content.endswith('```'):
-            return '\n'.join(content.split('\n')[1:-1])
-
-        # remove `foo`
-        return content.strip('` \n')
-
     @command(category='Developer', name='eval')
     @checks.is_owner()
     async def _eval(self, ctx, *, body: str):
@@ -108,7 +99,7 @@ class Dev:
 
         env.update(globals())
 
-        body = self.cleanup_code(body)
+        body = cleanup_code(body)
         stdout = io.StringIO()
 
         to_compile = (f'async def func():\n{textwrap.indent(body, "  ")}')
@@ -413,7 +404,6 @@ class Dev:
                 col_info = []
                 for col in col_data:
                     name = ['column_name']
-                    col_type = col['']
                     col_default = col['column_default']
                 print(col_data)
                 table_data[table] = '\n'.join(cols)

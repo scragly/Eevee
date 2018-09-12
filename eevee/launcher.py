@@ -104,6 +104,14 @@ def main():
 
             # show crash occured in console
             print("I crashed!")
+            if launch_args.debug and retries == 1:
+                print("Send CTRL+C within 20 seconds to prevent bot restart...")
+                try:
+                    time.sleep(20)
+                except KeyboardInterrupt:
+                    print("Exiting.")
+                    sys.exit()
+
             print("Restarting in...", end='\r', flush=True)
 
             try:

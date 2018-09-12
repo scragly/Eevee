@@ -66,11 +66,16 @@ class Tests(Cog):
 
     @group(name='embed', invoke_without_command=True)
     async def _embed(self, ctx, title=None, content=None, colour=None,
-                     icon_url=None, image=None, thumbnail=None,
-                     plain_msg=''):
+                     icon_url=None, image=None, thumbnail=None, footer=None,
+                     footer_icon=None, plain_msg=''):
         await ctx.embed(title=title, description=content, colour=colour,
                         icon=icon_url, image=image, thumbnail=thumbnail,
-                        plain_msg=plain_msg)
+                        plain_msg=plain_msg, footer=footer,
+                        footer_icon=footer_icon)
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            pass
 
     @_embed.command(name='error')
     async def _error(self, ctx, title, content=None, log_level='warning'):
@@ -233,10 +238,6 @@ class Tests(Cog):
                  f"{xkcd_data['num']} - "
                  f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
         await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])
-
-    @command(aliases=["hello", "g'day", "gday", "whatsupcobba", "topofthemorning", "hola"])
-    async def hi(self, ctx):
-        await ctx.embed(f"Hi {ctx.author.display_name} \U0001f44b")
 
     @command()
     async def codeblock(self, ctx, syntax, *, content):
