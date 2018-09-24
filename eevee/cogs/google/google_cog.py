@@ -1,4 +1,6 @@
 import json
+from urllib.parse import quote
+
 import bs4
 
 from discord.ext.commands import BadArgument
@@ -47,7 +49,7 @@ class ImageQuery:
         return results
 
     async def fetch_results(self):
-        url = self.URL_FORMAT.format(self.query)
+        url = self.URL_FORMAT.format(quote(self.query))
         headers = {'User-Agent': USER_AGENT}
         async with self._session.get(url, headers=headers) as r:
             html = await r.text()
@@ -114,7 +116,7 @@ class WebQuery:
         return results
 
     async def fetch_results(self):
-        url = self.URL_FORMAT.format(self.query)
+        url = self.URL_FORMAT.format(quote(self.query))
         headers = {'User-Agent': USER_AGENT}
         async with self._session.get(url, headers=headers) as r:
             html = await r.text()
@@ -137,7 +139,7 @@ class WebQuery:
 
         return make_embed(
             title=f'Google Search for "{self.query}"',
-            title_url=self.URL_FORMAT.format(self.query),
+            title_url=self.URL_FORMAT.format(quote(self.query)),
             content='\n\n'.join(top) + '\n'.join(rest),
             icon="https://image.flaticon.com/teams/slug/google.jpg")
 
@@ -148,6 +150,7 @@ class WebQuery:
         if not results:
             raise BadArgument("No Results Found")
         return instance
+
 
 class Google(Cog):
     def __init__(self, bot):
