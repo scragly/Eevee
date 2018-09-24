@@ -1,6 +1,7 @@
 import inspect
 import io
 import os
+import sys
 import textwrap
 import traceback
 import unicodedata
@@ -461,3 +462,37 @@ class Dev:
             output.append(rcrd['traceback'])
             output.append('-'*40)
         await ctx.codeblock('\n'.join(output))
+
+    @group()
+    @checks.is_owner()
+    async def pip(self, ctx):
+        ctx.pip_cmd = [sys.executable, '-m', 'pip']
+
+    @pip.command(aliases=['u'])
+    async def update(self, ctx, *, package=None):
+        ctx.pip_cmd.extend(['install', '-U'])
+
+        if package == 'discord.py':
+            package = None
+
+        package = package or ('git+https://github.com/Rapptz/discord.py'
+                              '@rewrite#egg=discord.py')
+
+        ctx.pip_cmd.append(package)
+
+        p = Popen(ctx.pip_cmd, stdout=PIPE)
+        await ctx.codeblock(p.stdout.read().decode("utf-8"), syntax="")
+
+    @pip.command(aliases=['i'])
+    async def install(self, ctx, *, package):
+        ctx.pip_cmd.extend(['install', package])
+
+        p = Popen(ctx.pip_cmd, stdout=PIPE)
+        await ctx.codeblock(p.stdout.read().decode("utf-8"), syntax="")
+
+    @pip.command(aliases=['s'])
+    async def show(self, ctx, *, package):
+        ctx.pip_cmd.extend(['show', package])
+
+        p = Popen(ctx.pip_cmd, stdout=PIPE)
+        await ctx.codeblock(p.stdout.read().decode("utf-8"), syntax="")
