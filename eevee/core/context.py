@@ -340,7 +340,6 @@ class GetTools:
                 guild = self.guild(guild)
                 if not guild:
                     return None
-            guild = guild or self.ctx.guild
 
             channel = self.channel(channel, guild)
             if not channel:
