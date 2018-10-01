@@ -12,6 +12,7 @@ from eevee.utils.formatters import convert_to_bool, make_embed, bold
 
 cvar = ContextVar('eevee')
 
+
 def ctx_setup(loop):
     import builtins
     builtins.__dict__['_'] = use_current_gettext
@@ -19,8 +20,10 @@ def ctx_setup(loop):
     builtins.__dict__['__cvar__'] = cvar
     enable_inherit(loop)
 
+
 def use_current_gettext(*args, **kwargs):
     return cvar.get().get_text(*args, **kwargs)
+
 
 class Context(commands.Context):
     def __init__(self, **kwargs):
@@ -139,7 +142,7 @@ class Context(commands.Context):
                     value = value[1]
                 embed.add_field(name=key, value=value, inline=ilf)
         if footer:
-            footer = {'text':footer}
+            footer = {'text': footer}
             if footer_icon:
                 footer['icon_url'] = footer_icon
             embed.set_footer(**footer)
@@ -167,8 +170,8 @@ class Context(commands.Context):
         options: Optional[list]
             What react options are valid, limited to react_dict keys.
         author_id: Optional[int]
-            The member who should respond to the prompt. Defaults to the author of the
-            Context's message.
+            The member who should respond to the prompt. Defaults to the
+            author of the Context's message.
         destination: Optional[discord.abc.Messageable]
             Where the prompt should be sent. Defaults to invoked channel.
         react_dict: Optional[dict]
@@ -189,45 +192,45 @@ class Context(commands.Context):
         if not custom_reacts:
             cek = '\u20e3'
             react_dict = {
-                "1" : {"emoji":"1"+cek, "value":1},
-                "2" : {"emoji":"2"+cek, "value":2},
-                "3" : {"emoji":"3"+cek, "value":3},
-                "4" : {"emoji":"4"+cek, "value":4},
-                "5" : {"emoji":"5"+cek, "value":5},
-                "6" : {"emoji":"6"+cek, "value":6},
-                "7" : {"emoji":"7"+cek, "value":7},
-                "8" : {"emoji":"8"+cek, "value":8},
-                "9" : {"emoji":"9"+cek, "value":9},
-                "10" : {"emoji":"\U0001f51f", "value":10},
-                "a" : {"emoji":"\U0001f1e6", "value":"a"},
-                "b" : {"emoji":"\U0001f1e7", "value":"b"},
-                "c" : {"emoji":"\U0001f1e8", "value":"c"},
-                "d" : {"emoji":"\U0001f1e9", "value":"d"},
-                "e" : {"emoji":"\U0001f1ea", "value":"e"},
-                "f" : {"emoji":"\U0001f1eb", "value":"f"},
-                "g" : {"emoji":"\U0001f1ec", "value":"g"},
-                "h" : {"emoji":"\U0001f1ed", "value":"h"},
-                "i" : {"emoji":"\U0001f1ee", "value":"i"},
-                "j" : {"emoji":"\U0001f1ef", "value":"j"},
-                "k" : {"emoji":"\U0001f1f0", "value":"k"},
-                "l" : {"emoji":"\U0001f1f1", "value":"l"},
-                "m" : {"emoji":"\U0001f1f2", "value":"m"},
-                "n" : {"emoji":"\U0001f1f2", "value":"n"},
-                "o" : {"emoji":"\U0001f1f4", "value":"o"},
-                "p" : {"emoji":"\U0001f1f5", "value":"p"},
-                "q" : {"emoji":"\U0001f1f6", "value":"q"},
-                "r" : {"emoji":"\U0001f1f7", "value":"r"},
-                "s" : {"emoji":"\U0001f1f8", "value":"s"},
-                "t" : {"emoji":"\U0001f1f9", "value":"t"},
-                "u" : {"emoji":"\U0001f1fa", "value":"u"},
-                "v" : {"emoji":"\U0001f1fb", "value":"v"},
-                "w" : {"emoji":"\U0001f1fc", "value":"w"},
-                "x" : {"emoji":"\U0001f1fd", "value":"x"},
-                "y" : {"emoji":"\U0001f1fe", "value":"y"},
-                "z" : {"emoji":"\U0001f1ff", "value":"z"},
-                "true" : {"emoji":"\u2705", "value":True},
-                "false" : {"emoji":"\u274e", "value":False},
-                "cancel" : {"emoji":"\U0001f6ab", "value":None},
+                "1": {"emoji": "1"+cek, "value": 1},
+                "2": {"emoji": "2"+cek, "value": 2},
+                "3": {"emoji": "3"+cek, "value": 3},
+                "4": {"emoji": "4"+cek, "value": 4},
+                "5": {"emoji": "5"+cek, "value": 5},
+                "6": {"emoji": "6"+cek, "value": 6},
+                "7": {"emoji": "7"+cek, "value": 7},
+                "8": {"emoji": "8"+cek, "value": 8},
+                "9": {"emoji": "9"+cek, "value": 9},
+                "10": {"emoji": "\U0001f51f", "value": 10},
+                "a": {"emoji": "\U0001f1e6", "value": "a"},
+                "b": {"emoji": "\U0001f1e7", "value": "b"},
+                "c": {"emoji": "\U0001f1e8", "value": "c"},
+                "d": {"emoji": "\U0001f1e9", "value": "d"},
+                "e": {"emoji": "\U0001f1ea", "value": "e"},
+                "f": {"emoji": "\U0001f1eb", "value": "f"},
+                "g": {"emoji": "\U0001f1ec", "value": "g"},
+                "h": {"emoji": "\U0001f1ed", "value": "h"},
+                "i": {"emoji": "\U0001f1ee", "value": "i"},
+                "j": {"emoji": "\U0001f1ef", "value": "j"},
+                "k": {"emoji": "\U0001f1f0", "value": "k"},
+                "l": {"emoji": "\U0001f1f1", "value": "l"},
+                "m": {"emoji": "\U0001f1f2", "value": "m"},
+                "n": {"emoji": "\U0001f1f2", "value": "n"},
+                "o": {"emoji": "\U0001f1f4", "value": "o"},
+                "p": {"emoji": "\U0001f1f5", "value": "p"},
+                "q": {"emoji": "\U0001f1f6", "value": "q"},
+                "r": {"emoji": "\U0001f1f7", "value": "r"},
+                "s": {"emoji": "\U0001f1f8", "value": "s"},
+                "t": {"emoji": "\U0001f1f9", "value": "t"},
+                "u": {"emoji": "\U0001f1fa", "value": "u"},
+                "v": {"emoji": "\U0001f1fb", "value": "v"},
+                "w": {"emoji": "\U0001f1fc", "value": "w"},
+                "x": {"emoji": "\U0001f1fd", "value": "x"},
+                "y": {"emoji": "\U0001f1fe", "value": "y"},
+                "z": {"emoji": "\U0001f1ff", "value": "z"},
+                "true": {"emoji": "\u2705", "value": True},
+                "false": {"emoji": "\u274e", "value": False},
+                "cancel": {"emoji": "\U0001f6ab", "value": None},
             }
 
         destination = destination or self.channel
@@ -264,7 +267,8 @@ class Context(commands.Context):
             await msg.add_reaction(emoji)
 
         try:
-            emoji, *__, = await self.bot.wait_for('reaction_add', check=check, timeout=timeout)
+            emoji, *__, = await self.bot.wait_for(
+                'reaction_add', check=check, timeout=timeout)
             # str cast in case of _ProxyEmojis
             return emoji_lookup[str(emoji)]
         except asyncio.TimeoutError:
@@ -272,6 +276,7 @@ class Context(commands.Context):
         finally:
             if autodelete:
                 await msg.delete()
+
 
 class GetTools:
     """Tools to easily get discord objects via Context."""
@@ -310,7 +315,7 @@ class GetTools:
         if isinstance(search_term, str):
             member = self.get(bot.users, name=search_term)
             if not member:
-                members = {str(m) : m for m in bot.users}
+                members = {str(m): m for m in bot.users}
                 member = members.get(search_term, None)
             return member
 
@@ -330,19 +335,23 @@ class GetTools:
         :class:`discord.Message` or :obj:`None`
             Returns the Message or None if not found.
         """
-        if isinstance(channel, (int, str)):
-            if isinstance(guild, (int, str)):
+        if channel:
+            if guild:
                 guild = self.guild(guild)
                 if not guild:
                     return None
-            channel = self.channel(channel, guild=guild)
-            if not guild:
+            guild = guild or self.ctx.guild
+
+            channel = self.channel(channel, guild)
+            if not channel:
                 return None
         channel = channel or self.ctx.channel
+
         if not no_cache:
             msg = self.get(channel._state._messages, id=id)
             if msg:
                 return msg
+
         try:
             return await channel.get_message(id)
         except discord.NotFound:
@@ -364,7 +373,7 @@ class GetTools:
         :class:`discord.abc.GuildChannel` or :obj:`None`
             Returns the `Channel` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
@@ -392,7 +401,7 @@ class GetTools:
         :class:`discord.TextChannel` or :obj:`None`
             Returns the `TextChannel` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
@@ -423,7 +432,7 @@ class GetTools:
         :class:`discord.VoiceChannel` or :obj:`None`
             Returns the `VoiceChannel` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
@@ -451,7 +460,7 @@ class GetTools:
         :class:`discord.CategoryChannel` or :obj:`None`
             Returns the `CategoryChannel` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
@@ -479,7 +488,7 @@ class GetTools:
         :class:`discord.Member` or :obj:`None`
             Returns the `Member` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
@@ -493,7 +502,7 @@ class GetTools:
             if not member:
                 member = self.get(guild.members, nick=search_term)
             if not member:
-                members = {str(m) : m for m in guild.members}
+                members = {str(m): m for m in guild.members}
                 member = members.get(search_term, None)
             return member
 
@@ -513,7 +522,7 @@ class GetTools:
         :class:`discord.Role` or :obj:`None`
             Returns the `Role` or `None` if not found.
         """
-        if isinstance(guild, (int, str)):
+        if guild:
             guild = self.guild(guild)
             if not guild:
                 return None
