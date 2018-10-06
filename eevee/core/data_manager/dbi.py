@@ -30,8 +30,6 @@ class DatabaseInterface:
         self.dsn = "postgres://{}:{}@{}:{}/{}".format(
             username, password, hostname, port, database)
         self.pool = None
-        self.prefix_conn = None
-        self.prefix_stmt = None
         self.settings_conn = None
         self.settings_stmt = None
         self.types = sqltypes
@@ -52,11 +50,6 @@ class DatabaseInterface:
         # ensure tables exists
         await self.core_tables_exist()
 
-        # guild prefix callable statement
-        self.prefix_conn = await self.pool.acquire()
-        prefix_sql = 'SELECT prefix FROM prefix WHERE guild_id=$1;'
-        self.prefix_stmt = await self.prefix_conn.prepare(prefix_sql)
-
         # guild settings statement
         self.settings_conn = await self.pool.acquire()
         settings_sql = ('SELECT config_value FROM guild_config '
@@ -73,30 +66,13 @@ class DatabaseInterface:
                 logger.warning(f'Core table {k} created.')
 
     async def stop(self):
-        conns = (self.prefix_conn, self.settings_conn)
+        conns = (self.settings_conn,)
         for c in conns:
             if c:
                 await self.pool.release(c)
         if self.pool:
             await self.pool.close()
             self.pool.terminate()
-
-    async def prefix_manager(self, bot, message):
-        """Returns the bot prefixes by context.
-
-        Returns a guild-specific prefix if it has been set. If not,
-        returns the default prefix.
-
-        Uses a prepared statement to ensure caching.
-        """
-        default_prefix = bot.default_prefix
-        if message.guild:
-            g_prefix = await self.prefix_stmt.fetchval(message.guild.id)
-            prefix = g_prefix if g_prefix else default_prefix
-        else:
-            prefix = default_prefix
-
-        return when_mentioned_or(prefix)(bot, message)
 
     async def execute_query(self, query, *query_args):
         result = []

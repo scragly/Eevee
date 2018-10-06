@@ -551,37 +551,29 @@ class Core:
             await ctx.send(embed=embed)
 
     @command(name="prefix", category='Bot Info')
-    async def _prefix(self, ctx, *, new_prefix: str = None):
+    async def _prefix(self, ctx, *, new_prefix=None):
         """Get prefix and set server prefix.
         Use the argument 'reset' to reset the guild prefix to default.
         """
-        bot = ctx.bot
-        default_prefix = bot.default_prefix
-        if not ctx.guild:
-            if new_prefix:
-                embed = make_embed(
-                    msg_type='error',
-                    title=f"Prefix can only be changed in guilds.")
-                await ctx.send(embed=embed)
-            else:
-                embed = make_embed(
-                    msg_type='info', title=f"Prefix is {default_prefix}")
-                await ctx.send(embed=embed)
-        else:
-            if await ctx.is_co_owner():
+        if new_prefix:
+            if not ctx.guild:
                 if new_prefix:
-                    await ctx.guild_dm.prefix(new_prefix)
-                    if new_prefix.lower() == 'reset':
-                        new_prefix = bot.default_prefix
                     embed = make_embed(
-                        msg_type='success', title=f"Prefix set to {new_prefix}")
-                    return await ctx.send(embed=embed)
+                        msg_type='error',
+                        title=f"Prefix can only be changed in guilds.")
+                    await ctx.send(embed=embed)
+            else:
+                if await checks.check_is_admin(ctx):
+                    if new_prefix == 'reset':
+                        new_prefix = None
+                    await ctx.bot.set_prefix(ctx.guild.id, new_prefix)
+                    prefix = new_prefix or ctx.bot.default_prefix
+                    return await ctx.success(f"Prefix set to {prefix}")
+                else:
+                    await ctx.error("Only admins can set the prefix.")
 
-            guild_prefix = await ctx.guild_dm.prefix()
-            prefix = guild_prefix if guild_prefix else default_prefix
-            embed = make_embed(
-                msg_type='info', title=f"Prefix is {prefix}")
-            await ctx.send(embed=embed)
+        prefix = ctx.bot.prefixes.get(ctx.guild.id, ctx.bot.default_prefix)
+        await ctx.info(f"Prefix is {prefix}")
 
     @command(name='help', category='Bot Info')
     async def _help(self, ctx, *, command: str = None):

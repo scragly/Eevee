@@ -56,6 +56,7 @@ class Eevee(commands.AutoShardedBot):
 
     def __init__(self, **kwargs):
         self.default_prefix = config.bot_prefix
+        self.prefixes = {}
         self.owner = config.bot_master
         self.shutdown_mode = ExitCodes.CRITICAL
         self.launcher = kwargs.pop('launcher')
@@ -77,15 +78,40 @@ class Eevee(commands.AutoShardedBot):
         self.dbi = DatabaseInterface(**config.db_details)
         self.data = DataManager(self.dbi)
         kwargs = dict(owner_id=self.owner,
-                      command_prefix=self.dbi.prefix_manager,
+                      command_prefix=self.prefix_manager,
                       status=discord.Status.dnd, **kwargs)
         super().__init__(**kwargs)
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.loop.run_until_complete(self._db_connect())
         self.logger = logging.getLogger('eevee.Eevee')
 
+    async def set_prefix(self, guild_id, new_prefix=None):
+        prefix_table = self.dbi.table('prefix')
+        if new_prefix:
+            prefix_table.insert.primaries('guild_id')
+            prefix_table.insert(guild_id=guild_id, prefix=new_prefix)
+            await prefix_table.insert.commit(do_update=True)
+            self.prefixes[guild_id] = new_prefix
+        else:
+            await prefix_table.query.where(guild_id=guild_id).delete()
+
+    async def load_prefixes(self):
+        prefix_table = self.dbi.table('prefix')
+        results = await prefix_table.query.get()
+        self.prefixes = dict(results)
+
+    async def prefix_manager(self, bot, message):
+        """Returns the bot prefixes by context.
+
+        Returns a guild-specific prefix if it has been set. If not,
+        returns the default prefix.
+        """
+        prefix = bot.prefixes.get(message.guild.id, bot.default_prefix)
+        return commands.when_mentioned_or(prefix)(bot, message)
+
     async def _db_connect(self):
         await self.dbi.start(loop=self.loop)
+        await self.load_prefixes()
 
     async def send_cmd_help(self, ctx, **kwargs):
         """Function to invoke help output for a command.
