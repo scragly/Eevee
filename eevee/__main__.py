@@ -9,12 +9,11 @@ Options:
     -d, --debug   Enable debug mode.
 """
 import argparse
-import asyncio
 import sys
 
 import discord
 
-from eevee.core import bot, logger, context
+from eevee.core import bot, logger
 from eevee.utils import ExitCodes
 
 if discord.version_info.major < 1:
@@ -25,10 +24,6 @@ if discord.version_info.major < 1:
 
 def run_eevee(debug=False, launcher=None, from_restart=False):
     """Sets up the bot, runs it and handles exit codes."""
-
-    # create async loop and setup contextvar
-    loop = asyncio.get_event_loop()
-    context.ctx_setup(loop)
 
     # create bot instance
     description = "Eevee v2 - Alpha"

@@ -1,28 +1,12 @@
 import asyncio
 import textwrap
 
-from aiocontextvars import enable_inherit, ContextVar
-
 import discord
 from discord.abc import Messageable
 from discord.ext import commands
 
 from eevee.core import checks
 from eevee.utils.formatters import convert_to_bool, make_embed, bold
-
-cvar = ContextVar('eevee')
-
-
-def ctx_setup(loop):
-    import builtins
-    builtins.__dict__['_'] = use_current_gettext
-    builtins.__dict__['get_ctx'] = cvar.get
-    builtins.__dict__['__cvar__'] = cvar
-    enable_inherit(loop)
-
-
-def use_current_gettext(*args, **kwargs):
-    return cvar.get().get_text(*args, **kwargs)
 
 
 class Context(commands.Context):
