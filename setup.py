@@ -31,7 +31,8 @@ setup(
         'colorthief',
         'more_itertools',
         'numpy',
-        'pendulum'
+        'pendulum',
+        'pytz'
     ],
 
     dependency_links=[

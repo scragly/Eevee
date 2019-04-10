@@ -48,18 +48,18 @@ def run_eevee(debug=False, launcher=None, from_restart=False):
         eevee.logger.critical("Token and prefix must be set in order to login.")
         sys.exit(1)
     try:
-        loop.run_until_complete(eevee.start(eevee.token))
+        eevee.loop.run_until_complete(eevee.start(eevee.token))
     except discord.LoginFailure:
         eevee.logger.critical("Invalid token")
-        loop.run_until_complete(eevee.logout())
+        eevee.loop.run_until_complete(eevee.logout())
         eevee.shutdown_mode = ExitCodes.SHUTDOWN
     except KeyboardInterrupt:
         eevee.logger.info("Keyboard interrupt detected. Quitting...")
-        loop.run_until_complete(eevee.logout())
+        eevee.loop.run_until_complete(eevee.logout())
         eevee.shutdown_mode = ExitCodes.SHUTDOWN
     except Exception as exc:
         eevee.logger.critical("Fatal exception", exc_info=exc)
-        loop.run_until_complete(eevee.logout())
+        eevee.loop.run_until_complete(eevee.logout())
     finally:
         code = eevee.shutdown_mode
         sys.exit(code.value)
