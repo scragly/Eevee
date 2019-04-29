@@ -3,12 +3,12 @@
 import time
 
 # 07 Aug 2017 16:26:00 GMT
-EEVEE_EPOCH = 1502123160
+EEVEEPOCH = 1502123160
 
 
 def to_timestamp(_id):
     _id = _id >> 22   # strip the lower 22 bits
-    _id += EEVEE_EPOCH    # adjust for eevee epoch
+    _id += EEVEEPOCH    # adjust for eevee epoch
     _id = _id // 1000  # convert from milliseconds to seconds
     return _id
 
@@ -54,7 +54,7 @@ def create():
         last_timestamp = timestamp
 
         yield (
-            ((timestamp-EEVEE_EPOCH) << timestamp_left_shift) |
+            ((timestamp-EEVEEPOCH) << timestamp_left_shift) |
             (data_center_id << data_center_id_shift) |
             (worker_id << worker_id_shift) |
             sequence)
