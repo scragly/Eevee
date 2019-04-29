@@ -1,37 +1,21 @@
 import asyncio
 import datetime
-import json
 import os
 import pkgutil
 import random
 import re
-import subprocess
-import sys
-import time
-from io import BytesIO
 
-import async_timeout
 import discord
 import numpy
-import pendulum
-
-from aiocontextvars import ContextVar
-from PIL import Image, ImageDraw, ImageOps
 
 from discord.ext import commands
-from discord.ext.commands import Paginator
 
-from eevee import Cog, checks, command, group
-from eevee.core.data_manager import errors
-from eevee.utils import cvtest, get_match, make_embed, user_color
+from eevee import Cog, checks, command
 from eevee.utils.converters import Guild, Multi
-from eevee.utils.formatters import bold
 
 PBOT_APPID = 'un08c68977'
 PBOT_UKEY = 'd6ec6b1babce597b27050962926f3a4c'
 
-def bitround(x):
-    return max(min(1 << int(x).bit_length() - 1, 1024), 16)
 
 class Tests(Cog):
     """Test Features"""
@@ -63,42 +47,6 @@ class Tests(Cog):
             await ctx.send(
                 "You've provided an incorrect URL, or I need the ",
                 "`Embed links` permission to send this")
-
-    @group(name='embed', invoke_without_command=True)
-    async def _embed(self, ctx, title=None, content=None, colour=None,
-                     icon_url=None, image=None, thumbnail=None, footer=None,
-                     footer_icon=None, plain_msg=''):
-        await ctx.embed(title=title, description=content, colour=colour,
-                        icon=icon_url, image=image, thumbnail=thumbnail,
-                        plain_msg=plain_msg, footer=footer,
-                        footer_icon=footer_icon)
-        try:
-            await ctx.message.delete()
-        except discord.Forbidden:
-            pass
-
-    @_embed.command(name='error')
-    async def _error(self, ctx, title, content=None, log_level='warning'):
-        await ctx.error(title, content, log_level)
-
-    @_embed.command(name='info')
-    async def _info(self, ctx, title, content=None):
-        await ctx.info(title, content)
-
-    @_embed.command(name='warning')
-    async def _warning(self, ctx, title, content=None):
-        embed = make_embed(title=title, content=content, msg_type='warning')
-        await ctx.send(embed=embed)
-
-    @_embed.command(name='success')
-    async def _success(self, ctx, title, content=None):
-        embed = make_embed(title=title, content=content, msg_type='success')
-        await ctx.send(embed=embed)
-
-    @_embed.command(name='help')
-    async def _help(self, ctx, title, content=None):
-        embed = make_embed(title=title, content=content, msg_type='help')
-        await ctx.send(embed=embed)
 
     @command(category="Server Config")
     async def _test(self, ctx):
@@ -157,28 +105,6 @@ class Tests(Cog):
         await ctx.send('test')
 
     @command()
-    async def cleanup(self, ctx, after_msg_id: int, channel_id: int = None):
-        after_msg = await ctx.get.message(after_msg_id)
-        channel = ctx.channel
-        if channel_id:
-            channel = ctx.get.channel(channel_id)
-        def is_eevee(msg):
-            return msg.author == ctx.bot.user
-        try:
-            deleted = await channel.purge(
-                after=after_msg, check=is_eevee, bulk=True)
-        except discord.Forbidden:
-            deleted = await channel.purge(
-                after=after_msg, check=is_eevee, bulk=False)
-        embed = make_embed(
-            msg_type='success',
-            title='Deleted {} message{}'.format(
-                len(deleted), "s" if len(deleted) > 1 else ""))
-        result_msg = await ctx.send(embed=embed)
-        await asyncio.sleep(3)
-        await result_msg.delete()
-
-    @command()
     async def set_admin(self, ctx, role: discord.Role):
         await ctx.setting('AdminRole', role.id)
         await ctx.send(f'Set {role.name} as this guilds Admin Role.')
@@ -199,21 +125,6 @@ class Tests(Cog):
     async def get_member(self, ctx, *, member: discord.Member):
         await ctx.send(f"{member.name} - {member.id}")
 
-    @command(aliases=['avatar'])
-    async def avy(self, ctx, member: discord.Member = None,
-                  size: bitround = 1024):
-        member = member or ctx.author
-        avy_url = member.avatar_url_as(size=size, static_format='png')
-        try:
-            colour = await user_color(member)
-        except OSError:
-            colour = ctx.me.colour
-        await ctx.embed(
-            f"{member.display_name}'s Avatar",
-            title_url=avy_url,
-            image=avy_url,
-            colour=colour)
-
     @command()
     async def delete_msg(self, ctx, *message_ids: int):
         for msg_id in message_ids:
@@ -226,18 +137,6 @@ class Tests(Cog):
             await ctx.message.delete()
         except discord.HTTPException:
             pass
-
-    @command()
-    async def xkcd(self, ctx, comic_number: int = None):
-        url_num = f"{comic_number}/" if comic_number else ""
-        url = f"https://xkcd.com/{url_num}info.0.json"
-        async with async_timeout.timeout(10):
-            async with ctx.bot.session.get(url) as response:
-                xkcd_data = await response.json()
-        title = (f"{xkcd_data['safe_title']} - "
-                 f"{xkcd_data['num']} - "
-                 f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
-        await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])
 
     @command()
     async def codeblock(self, ctx, syntax, *, content):
@@ -346,42 +245,6 @@ class Tests(Cog):
         await ctx.codeblock(sql, "sql")
 
     @command()
-    async def raid_help(self, ctx):
-        # f"`{'Level':<23}:` {pokemon.raid_level}\n"
-        title = "Raid Coordination Help"
-        icon = ("https://cdn.discordapp.com/avatars/346759953006198784/"
-                "47cddf18228a9f9a664dfa9b2ea4155e.png?size=256")
-        content = ['**Key**', ("<> denote required arguments\n"
-                               "[] denote optional arguments")]
-        raidmgmt = {
-            '!raid <species>':"Hatches Egg channel",
-            '!weather <weather>':"Sets in-game weather",
-            '!timerset <minutes>':"Sets hatch/raid timer",
-            '!starttime <time>':"Sets start time",
-            '<google maps link>':"Updates raid location"
-        }
-        rsvp = {
-            '!(i/c/h) [total] [team counts]':(
-                "Marks you as interested/coming/here.\n"
-                "    `[total]`\n        Total # of trainers in the group.\n"
-                "    `[team counts]`\n        # of trainers in each team\n"
-                "        Example: `3m` = 3 Mystic."),
-            '!starting [team]':"Moves trainers from 'here' to 'lobby'"
-        }
-        raidmgmt_list = []
-        for cmd, details in raidmgmt.items():
-            raidmgmt_list.append(f"**`{cmd}`**\n    {details}")
-        rsvp_list = []
-        for cmd, details in rsvp.items():
-            rsvp_list.append(f"**`{cmd}`**\n    {details}")
-        fields = {
-            "RAID MANAGEMENT":'\n'.join(raidmgmt_list),
-            "RSVP":'\n'.join(rsvp_list)
-        }
-        await ctx.embed(
-            title, '\n'.join(content), icon=icon, fields=fields, inline=True)
-
-    @command()
     async def roll(self, ctx, *dice):
         def die_roll(sides: int):
             return random.choice(range(1, sides+1))
@@ -405,34 +268,6 @@ class Tests(Cog):
             return perms.send_messages and perms.read_messages
         results = list(filter(can_use, guild.text_channels))
         await ctx.send(str(results))
-
-    @command(aliases=['igpayatinlay'])
-    async def piglatin(self, ctx, *words):
-        if not words:
-            return await ctx.send('Onay Ordsway Otay Onvertcay')
-        result = []
-        for word in words:
-            if not word:
-                result.append('')
-                continue
-            word = word.lower()
-            pattern = re.compile('[a,e,i,o,u]')
-            y = 'y'
-            tail = 'a' + y
-            if word.startswith(y):
-                result.append(word + y + tail)
-                continue
-            first_vowel = pattern.search(word)
-            if not first_vowel:
-                result.append(word + tail)
-                continue
-            first_vowel = first_vowel.group()
-            if word.find(first_vowel) == 0:
-                result.append(word + y + tail)
-                continue
-            first, second = word.split(first_vowel, 1)
-            result.append(first_vowel + second + first + tail)
-        await ctx.send(' '.join(result))
 
     @command()
     async def show_deleted(self, ctx, count: int = 1,
@@ -502,91 +337,6 @@ class Tests(Cog):
             title = 'Last Deleted Message'
 
         await ctx.embed(title, fields=msg_data)
-
-    @command()
-    async def context_test(self, ctx, number: int):
-        _ctx_.set(number)
-        await ctx.send(str(number))
-        await asyncio.sleep(number)
-        await cvtest.context_test_func(number)
-        ctx_value = _ctx_.get()
-        await ctx.send(str(ctx_value))
-
-    @command()
-    async def chat(self, ctx, *, content):
-
-        if not hasattr(ctx.bot, 'chat_sessions'):
-            ctx.bot.chat_sessions = {}
-
-        session_id = ctx.bot.chat_sessions.get(ctx.author.id, None)
-
-        params = {'user_key' : PBOT_UKEY, 'input' : content}
-
-        if session_id:
-            params['sessionid'] = session_id
-
-        chat_url = f'https://api.pandorabots.com/talk/{PBOT_APPID}/eevee'
-
-        async with ctx.bot.session.post(chat_url, params=params) as resp:
-            status = resp.status
-            print(resp.url)
-            print(await resp.text())
-            data = await resp.json()
-
-        if status == 200:
-            reply = data['responses'][0]
-        else:
-            reply = data['message']
-
-        await ctx.send(reply)
-
-        if not session_id and status == 200:
-            ctx.bot.chat_sessions[ctx.author.id] = data['sessionid']
-
-    async def circle_crop(self, img_url):
-        async with self.bot.session.get(img_url) as r:
-            data = BytesIO(await r.read())
-        img = Image.open(data)
-        size = img.size
-        with Image.new('L', size, 255) as mask:
-            draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0) + size, fill=0)
-            del draw
-            img = img.convert('RGBA')
-            output = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
-            output.paste(0, mask=mask)
-            b = BytesIO()
-            output.save(b, 'png')
-            b.seek(0)
-            return b
-
-    @command()
-    async def profile_preview(self, ctx, url=None):
-        img_urls = []
-        if not url:
-            if ctx.message.attachments:
-                for img in ctx.message.attachments:
-                    img_urls.append(img.url)
-            else:
-                img_urls.append(ctx.author.avatar_url_as(format='png'))
-        else:
-            img_urls.append(url)
-        imgs = []
-        for img_url in img_urls:
-            imgs.append(await self.circle_crop(img_url))
-
-        for img in imgs:
-            await ctx.send(file=discord.File(img, filename='circle.png'))
-
-    @command()
-    async def addrequest(self, ctx, title, *, content):
-        uv = ctx.get.emoji('upvote')
-        dv = ctx.get.emoji('downvote')
-        msg = await ctx.embed(title, content)
-        await msg.add_reaction(uv)
-        await asyncio.sleep(0.5)
-        await msg.add_reaction(dv)
-        await ctx.message.delete()
 
     @command()
     async def clonechannel(self, ctx, channel_id: int):

@@ -1,11 +1,16 @@
+import asyncio
 import time
 import datetime
 import json
-import pendulum
+import re
+from io import BytesIO
 
+import async_timeout
 import discord
+from PIL import Image, ImageDraw, ImageOps
 
 from eevee import group, command, checks, utils
+
 
 class BaseConverter(object):
     decimal_digits = "0123456789"
@@ -45,6 +50,7 @@ class BaseConverter(object):
                 res = '-' + res
         return res
     convert = staticmethod(convert)
+
 
 class PublicTests:
     """Test commands that are open for public usage."""
@@ -181,7 +187,7 @@ class PublicTests:
         content = msg['clean_content']
         embeds = msg['embeds']
         if len(embeds) > 1:
-            embed_content = f'{len(embeds)} Embeds'
+            content = f'{len(embeds)} Embeds'
         elif embeds:
             embed = json.loads(embeds[0])
             embed_content = []
@@ -264,3 +270,163 @@ class PublicTests:
     @command(aliases=["hello", "g'day", "gday", "whatsupcobba", "topofthemorning", "hola"])
     async def hi(self, ctx):
         await ctx.embed(f"Hi {ctx.author.display_name} \U0001f44b")
+
+    @group(name='embed', invoke_without_command=True)
+    async def _embed(self, ctx, title=None, content=None, colour=None,
+                     icon_url=None, image=None, thumbnail=None, footer=None,
+                     footer_icon=None, plain_msg=''):
+        await ctx.embed(title=title, description=content, colour=colour,
+                        icon=icon_url, image=image, thumbnail=thumbnail,
+                        plain_msg=plain_msg, footer=footer,
+                        footer_icon=footer_icon)
+        try:
+            await ctx.message.delete()
+        except discord.Forbidden:
+            pass
+
+    @_embed.command(name='error')
+    async def _error(self, ctx, title, content=None, log_level='warning'):
+        await ctx.error(title, content, log_level)
+
+    @_embed.command(name='info')
+    async def _info(self, ctx, title, content=None):
+        await ctx.info(title, content)
+
+    @_embed.command(name='warning')
+    async def _warning(self, ctx, title, content=None):
+        embed = utils.make_embed(title=title, content=content, msg_type='warning')
+        await ctx.send(embed=embed)
+
+    @_embed.command(name='success')
+    async def _success(self, ctx, title, content=None):
+        embed = utils.make_embed(title=title, content=content, msg_type='success')
+        await ctx.send(embed=embed)
+
+    @_embed.command(name='help')
+    async def _help(self, ctx, title, content=None):
+        embed = utils.make_embed(title=title, content=content, msg_type='help')
+        await ctx.send(embed=embed)
+
+    @command(aliases=['avatar'])
+    async def avy(self, ctx, member: discord.Member = None, size: utils.bitround = 1024):
+        member = member or ctx.author
+        avy_url = member.avatar_url_as(size=size, static_format='png')
+        try:
+            colour = await utils.user_color(member)
+        except OSError:
+            colour = ctx.me.colour
+        await ctx.embed(
+            f"{member.display_name}'s Avatar", title_url=avy_url, image=avy_url, colour=colour)
+
+    @command()
+    async def cleanup(self, ctx, after_msg_id: int, channel_id: int = None):
+        after_msg = await ctx.get.message(after_msg_id)
+        channel = ctx.channel
+        if channel_id:
+            channel = ctx.get.channel(channel_id)
+
+        def is_eevee(msg):
+            return msg.author == ctx.bot.user
+
+        try:
+            deleted = await channel.purge(
+                after=after_msg, check=is_eevee, bulk=True)
+        except discord.Forbidden:
+            deleted = await channel.purge(
+                after=after_msg, check=is_eevee, bulk=False)
+
+        del_count = len(deleted)
+
+        embed = utils.make_embed(
+            msg_type='success',
+            title=f"Deleted {del_count} message{'s' if del_count > 1 else ''}"
+        )
+
+        result_msg = await ctx.send(embed=embed)
+        await asyncio.sleep(3)
+        await result_msg.delete()
+
+    @command(aliases=['igpayatinlay'])
+    async def piglatin(self, ctx, *words):
+        if not words:
+            return await ctx.send('Onay Ordsway Otay Onvertcay')
+        result = []
+        for word in words:
+            if not word:
+                result.append('')
+                continue
+            word = word.lower()
+            pattern = re.compile('[a,e,i,o,u]')
+            y = 'y'
+            tail = 'a' + y
+            if word.startswith(y):
+                result.append(word + y + tail)
+                continue
+            first_vowel = pattern.search(word)
+            if not first_vowel:
+                result.append(word + tail)
+                continue
+            first_vowel = first_vowel.group()
+            if word.find(first_vowel) == 0:
+                result.append(word + y + tail)
+                continue
+            first, second = word.split(first_vowel, 1)
+            result.append(first_vowel + second + first + tail)
+        await ctx.send(' '.join(result))
+
+    async def circle_crop(self, img_url):
+        async with self.bot.session.get(img_url) as r:
+            data = BytesIO(await r.read())
+        img = Image.open(data)
+        size = img.size
+        with Image.new('L', size, 255) as mask:
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0) + size, fill=0)
+            del draw
+            img = img.convert('RGBA')
+            output = ImageOps.fit(img, mask.size, centering=(0.5, 0.5))
+            output.paste(0, mask=mask)
+            b = BytesIO()
+            output.save(b, 'png')
+            b.seek(0)
+            return b
+
+    @command()
+    async def profile_preview(self, ctx, url=None):
+        img_urls = []
+        if not url:
+            if ctx.message.attachments:
+                for img in ctx.message.attachments:
+                    img_urls.append(img.url)
+            else:
+                img_urls.append(ctx.author.avatar_url_as(format='png'))
+        else:
+            img_urls.append(url)
+        imgs = []
+        for img_url in img_urls:
+            imgs.append(await self.circle_crop(img_url))
+
+        for img in imgs:
+            await ctx.send(file=discord.File(img, filename='circle.png'))
+
+    @command()
+    async def vote(self, ctx, title, *, content):
+        uv = ctx.get.emoji('upvote')
+        dv = ctx.get.emoji('downvote')
+        msg = await ctx.embed(title, content)
+        await msg.add_reaction(uv)
+        await asyncio.sleep(0.5)
+        await msg.add_reaction(dv)
+        await ctx.message.delete()
+
+    @command()
+    async def xkcd(self, ctx, comic_number: int = None):
+        url_num = f"{comic_number}/" if comic_number else ""
+        url = f"https://xkcd.com/{url_num}info.0.json"
+        async with async_timeout.timeout(10):
+            async with ctx.bot.session.get(url) as response:
+                xkcd_data = await response.json()
+        title = (f"{xkcd_data['safe_title']} - "
+                 f"{xkcd_data['num']} - "
+                 f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
+        await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])
