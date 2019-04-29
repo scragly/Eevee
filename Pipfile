@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages] 
+discord-py = {git = "https://github.com/Rapptz/discord.py",ref = "3f06f24"}
+python-dateutil = ">=2.6"
+asyncpg = ">=0.13"
+python-levenshtein = ">=0.12"
+fuzzywuzzy = "*"
+psutil = "*"
+aiocontextvars = "*"
+colorthief = "*"
+more-itertools = "*"
+numpy = "*"
+pendulum = "*"
+pytz = "*"
+matplotlib = "*"
+
+[requires]
+python_version = "3.6"
+
+[scripts]
+bot = "python -m eevee"
