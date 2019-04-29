@@ -8,12 +8,14 @@ import discord
 from eevee import command, group, Cog, checks
 from eevee.utils import fuzzymatch
 
+
 class Time(Cog):
     """Time Tools"""
     def __init__(self, bot):
         self.bot = bot
         self.tzdburl = 'https://github.com/sdispater/pytzdata/blob/master/pytzdata/_timezones.py'
-        self.timezones = self.get_timezones()
+        self.timezones = None
+        self.get_timezones()
 
     def get_timezones(self):
         zone_tab = pytz.open_resource('zone.tab')
@@ -137,18 +139,24 @@ class Time(Cog):
         member = member or ctx.author
         timezone = await self.get_timezone(member.id)
         if not timezone:
-            if ctx.author == member:
-                return await ctx.error(
-                    f'{member.display_name} has not set a timezone yet.',
-                    f'To set one, use the `{ctx.prefix}tz set` command like so:\n'
-                    f'```{ctx.prefix}tz set US/Eastern```\n'
-                    f"[List of all available timezones]({self.tzdburl})")
-            return await ctx.error(f'{member.display_name} has not set a timezone yet.')
+            return await ctx.error(
+                f'{member.display_name} has not set a timezone yet.',
+                f'To set one, use the `{ctx.prefix}tz set` command like so:\n'
+                f'```{ctx.prefix}tz set US/Eastern```\n'
+                f"[List of all available timezones]({self.tzdburl})")
         return await ctx.embed(f"{member.display_name}'s Timezone", timezone)
+
+    @tz.command(name='list')
+    async def tz_list(self, ctx):
+        await ctx.embed("Available Timezones List", title_url=self.tzdburl)
 
     @tz.command(name='set')
     async def _set(self, ctx, timezone=None, member: discord.Member = None):
-        """Sets a member's timezone"""
+        """Sets a member's timezone. Only co-owners can set other's tzs."""
+
+        if member and not await checks.check_is_co_owner(ctx):
+            return await ctx.error('You can only set your own timezone.')
+
         member = member or ctx.author
 
         if timezone:
