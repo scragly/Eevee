@@ -328,6 +328,9 @@ class TableColumns:
     def get_column(self, name):
         return Column(name, table=self._table)
 
+    def get_columns(self, *column_names):
+        return [Column(name, table=self._table) for name in column_names]
+
     async def info(self, *names):
         metatable = Table('information_schema.columns', self._dbi)
         metatable.query.where(TABLE_NAME=self._table.name)
