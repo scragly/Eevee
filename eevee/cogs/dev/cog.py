@@ -155,12 +155,7 @@ class Dev:
         """Displays the source code for a particular command.
         There is a per-user, 2 times per 5 seconds cooldown in order to prevent spam.
         """
-        paginator = commands.Paginator(prefix='```py')
-        for line in inspect.getsourcelines(command.callback)[0]:
-            paginator.add_line(line.rstrip().replace('`', '\u200b`'))
-
-        for p in paginator.pages:
-            await ctx.send(p)
+        await ctx.codeblock(inspect.getsource(command.callback))
 
     @command(category="Developer")
     async def clear_console(self, ctx):
