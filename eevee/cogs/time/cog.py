@@ -86,7 +86,7 @@ class Time(Cog):
         try:
             tzoffset = datetime.timedelta(hours=float(timezone))
             datetime.timezone(tzoffset)
-        except ValueError:
+        except (ValueError, TypeError):
             pass
         else:
             return timezone
