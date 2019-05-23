@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime
 
+import aiohttp
 from async_timeout import timeout
 
 from eevee import command, Cog
@@ -49,7 +50,14 @@ class XKCD(Cog):
             update_msg = await feedback_dest.send(update_text + f"\n0/{latest} collected.")
 
         for i in range(result+1, latest+1):
-            data = await self.get_comic(i)
+            try:
+                data = await self.get_comic(i)
+            except aiohttp.ContentTypeError:
+                if feedback_dest:
+                    await feedback_dest.send(f"Comic {i} failed.")
+                await asyncio.sleep(1)
+                continue
+
             self.table.insert.row(
                 id=data['num'],
                 img=data['img'],
