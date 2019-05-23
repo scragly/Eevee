@@ -86,6 +86,8 @@ class XKCD(Cog):
             await update_msg.edit(content=update_text + f"\n{latest}/{latest} done.")
             await feedback_dest.send(f"Updated Complete.")
 
+        self.update_task = None
+
     @command()
     async def xkcd(self, ctx, comic_number: int = None):
         url_num = f"{comic_number}/" if comic_number else ""
@@ -108,7 +110,6 @@ class XKCD(Cog):
         if self.update_task:
             return await ctx.send("An update is already in progress.")
         self.update_task = ctx.bot.loop.create_task(self.update_data(ctx))
-        self.update_task.add_done_callback(self.cancel_task)
 
     @command()
     async def xkcd_cancel(self, ctx):
