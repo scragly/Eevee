@@ -110,7 +110,9 @@ class XKCD(Cog):
         self.update_task = ctx.bot.loop.create_task(self.update_data(ctx))
         self.update_task.add_done_callback(self.cancel_task)
 
+    @command()
     async def xkcd_cancel(self, ctx):
         if not self.update_task:
             return await ctx.send("No update task running.")
         self.cancel_task()
+        await ctx.send("Update task cancelled.")
