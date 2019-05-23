@@ -1,9 +1,9 @@
 from async_timeout import timeout
 
-from eevee import command
+from eevee import command, Cog
 
 
-class XKCD:
+class XKCD(Cog):
     """Test commands that are open for public usage."""
     def __init__(self, bot):
         self.bot = bot
