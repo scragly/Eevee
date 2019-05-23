@@ -73,7 +73,7 @@ class XKCD(Cog):
                 news=data['news']
             )
 
-            self.table.insert.commit(do_update=False)
+            await self.table.insert.commit(do_update=False)
 
             if feedback_dest:
                 last_change = update_msg.edited_at or update_msg.created_at
