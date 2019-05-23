@@ -678,10 +678,10 @@ class Query:
         return await self._dbi.execute_query(query, *args)
 
     async def get_one(self):
-        old_limit = self._limit
-        self.limit(2)
+        if not self._limit:
+            self.limit(2)
         data = await self.get()
-        self.limit(old_limit)
+        self.limit()
         if len(data) > 1:
             raise ResponseError('More than one result returned.')
         if not data:
