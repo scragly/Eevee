@@ -15,7 +15,7 @@ class XKCD(Cog):
         self.table = bot.dbi.table('xkcd')
 
     async def get_comic(self, issue: int = None):
-        url = ISSUE_URL.format(issue) if issue else LATEST_URL
+        url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
         async with self.bot.session.get(url) as r:
             return await r.json()
 
@@ -45,7 +45,7 @@ class XKCD(Cog):
 
         if feedback_dest:
             update_text = f"Pulling updates for comics {result} to {latest}."
-            update_msg = await feedback_dest.send(update_text + f"\n0/{latest} done.")
+            update_msg = await feedback_dest.send(update_text + f"\n0/{latest} collected.")
 
         for i in range(result+1, latest+1):
             data = await self.get_comic(i)
@@ -66,15 +66,15 @@ class XKCD(Cog):
                 last_change = update_msg.edited_at or update_msg.created_at
                 since_change = datetime.utcnow() - last_change
                 if since_change.total_seconds() > 5:
-                    await update_msg.edit(update_text + f"\n{data['num']}/{latest} done.")
+                    await update_msg.edit(update_text + f"\n{data['num']}/{latest} collected.")
 
         if feedback_dest:
-            await update_msg.edit(update_text + f"\n{latest}/{latest} done.")
+            await update_msg.edit(update_text + f"\n{latest}/{latest} collected.")
 
         self.table.insert.commit(do_update=False)
 
         if feedback_dest:
-            await feedback_dest.send(f"Update Finished.")
+            await feedback_dest.send(f"Updated Data Saved.")
 
     @command()
     async def xkcd(self, ctx, comic_number: int = None):
