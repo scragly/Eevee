@@ -18,8 +18,12 @@ class XKCD(Cog):
 
     async def get_comic(self, issue: int = None):
         url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
-        async with self.bot.session.get(url) as r:
-            return await r.json()
+        while True:
+            async with self.bot.session.get(url) as r:
+                if "text/html" in r.content_type:
+                    await asyncio.sleep(1)
+                    continue
+                return await r.json()
 
     async def latest_id(self):
         data = await self.get_comic()
@@ -47,16 +51,10 @@ class XKCD(Cog):
 
         if feedback_dest:
             update_text = f"Pulling updates for comics {result} to {latest}."
-            update_msg = await feedback_dest.send(update_text + f"\n0/{latest} collected.")
+            update_msg = await feedback_dest.send(update_text + f"\n0/{latest} done.")
 
         for i in range(result+1, latest+1):
-            try:
-                data = await self.get_comic(i)
-            except aiohttp.ContentTypeError:
-                if feedback_dest:
-                    await feedback_dest.send(f"Comic {i} failed.")
-                await asyncio.sleep(1)
-                continue
+            data = await self.get_comic(i)
 
             self.table.insert.row(
                 id=data['num'],
@@ -71,20 +69,18 @@ class XKCD(Cog):
                 news=data['news']
             )
 
+            self.table.insert.commit(do_update=False)
+
             if feedback_dest:
                 last_change = update_msg.edited_at or update_msg.created_at
                 since_change = datetime.utcnow() - last_change
                 if since_change.total_seconds() > 5:
-                    await update_msg.edit(content=update_text + f"\n{data['num']}/{latest} collected.")
+                    await update_msg.edit(content=update_text + f"\n{data['num']}/{latest} done.")
             await asyncio.sleep(0.1)
 
         if feedback_dest:
-            await update_msg.edit(content=update_text + f"\n{latest}/{latest} collected.")
-
-        self.table.insert.commit(do_update=False)
-
-        if feedback_dest:
-            await feedback_dest.send(f"Updated Data Saved.")
+            await update_msg.edit(content=update_text + f"\n{latest}/{latest} done.")
+            await feedback_dest.send(f"Updated Complete.")
 
     @command()
     async def xkcd(self, ctx, comic_number: int = None):
