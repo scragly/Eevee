@@ -18,6 +18,9 @@ class XKCD(Cog):
         self.update_task = None
 
     async def get_comic(self, issue: int = None):
+        if issue in [404]:
+            return None
+
         url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
         while True:
             async with self.bot.session.get(url) as r:
@@ -57,10 +60,13 @@ class XKCD(Cog):
 
         if feedback_dest:
             update_text = f"Pulling updates for comics {result} to {latest}."
-            update_msg = await feedback_dest.send(update_text + f"\n0/{latest} done.")
+            update_msg = await feedback_dest.send(update_text + f"\n{result}/{latest} done.")
 
         for i in range(result+1, latest+1):
             data = await self.get_comic(i)
+
+            if not data:
+                continue
 
             self.table.insert.row(
                 id=int(data['num']),
