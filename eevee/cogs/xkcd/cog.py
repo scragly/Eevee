@@ -61,14 +61,14 @@ class XKCD(Cog):
             data = await self.get_comic(i)
 
             self.table.insert.row(
-                id=data['num'],
+                id=int(data['num']),
                 img=data['img'],
                 title=data['title'],
                 safe_title=data['safe_title'],
                 alt=data['alt'],
-                year=data['year'],
-                month=data['month'],
-                day=data['day'],
+                year=int(data['year']),
+                month=int(data['month']),
+                day=int(data['day']),
                 transcript=data['transcript'],
                 news=data['news']
             )
