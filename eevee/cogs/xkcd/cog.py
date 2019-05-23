@@ -66,10 +66,10 @@ class XKCD(Cog):
                 last_change = update_msg.edited_at or update_msg.created_at
                 since_change = datetime.utcnow() - last_change
                 if since_change.total_seconds() > 5:
-                    await update_msg.edit(update_text + f"\n{data['num']}/{latest} collected.")
+                    await update_msg.edit(content=update_text + f"\n{data['num']}/{latest} collected.")
 
         if feedback_dest:
-            await update_msg.edit(update_text + f"\n{latest}/{latest} collected.")
+            await update_msg.edit(content=update_text + f"\n{latest}/{latest} collected.")
 
         self.table.insert.commit(do_update=False)
 
