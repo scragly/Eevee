@@ -15,6 +15,7 @@ class XKCD(Cog):
     def __init__(self, bot):
         self.bot = bot
         self.table = bot.dbi.table('xkcd')
+        self.update_task = None
 
     async def get_comic(self, issue: int = None):
         url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
@@ -27,7 +28,6 @@ class XKCD(Cog):
                     continue
                 else:
                     return data
-
 
     async def latest_id(self):
         data = await self.get_comic()
@@ -98,6 +98,19 @@ class XKCD(Cog):
                  f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
         await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])
 
+    def cancel_task(self):
+        if not self.update_task.done():
+            self.update_task.cancel()
+        self.update_task = None
+
     @command()
     async def xkcd_update(self, ctx):
-        await self.update_data(ctx)
+        if self.update_task:
+            return await ctx.send("An update is already in progress.")
+        self.update_task = asyncio.create_task(self.update_data(ctx))
+        self.update_task.add_done_callback(self.cancel_task)
+
+    async def xkcd_cancel(self, ctx):
+        if not self.update_task:
+            return await ctx.send("No update task running.")
+        self.cancel_task()
