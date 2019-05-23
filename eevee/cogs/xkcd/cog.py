@@ -37,8 +37,10 @@ class XKCD(Cog):
         if feedback_dest:
             await feedback_dest.send("Starting Update")
         query = self.table.query("id").order_by("id", asc=False).limit(1)
-        result = await query.get_one()
-        if not result:
+        data = await query.get_one()
+        if data:
+            result = data["id"]
+        else:
             result = 0
 
         if feedback_dest:
