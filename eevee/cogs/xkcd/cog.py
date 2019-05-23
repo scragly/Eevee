@@ -100,15 +100,14 @@ class XKCD(Cog):
 
     @command()
     async def xkcd(self, ctx, comic_number: int = None):
-        url_num = f"{comic_number}/" if comic_number else ""
-        url = f"https://xkcd.com/{url_num}info.0.json"
-        async with timeout(10):
-            async with ctx.bot.session.get(url) as response:
-                xkcd_data = await response.json()
-        title = (f"{xkcd_data['safe_title']} - "
-                 f"{xkcd_data['num']} - "
-                 f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
-        await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])
+        data = await self.get_comic(comic_number)
+        if not data:
+            return await ctx.error("Invalid XKCD number.")
+
+        title = (f"{data['safe_title']} - "
+                 f"{data['num']} - "
+                 f"{data['year']}/{data['month']}/{data['day']}")
+        await ctx.embed(title, footer=data['alt'], image=data['img'])
 
     def cancel_task(self):
         if not self.update_task.done():
