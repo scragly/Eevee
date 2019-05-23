@@ -22,15 +22,17 @@ class XKCD(Cog):
             return None
 
         url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
-        while True:
-            async with self.bot.session.get(url) as r:
-                try:
-                    data = await r.json()
-                except aiohttp.ClientResponseError:
-                    await asyncio.sleep(1)
-                    continue
-                else:
-                    return data
+
+        async with timeout(10):
+            while True:
+                async with self.bot.session.get(url) as r:
+                    try:
+                        data = await r.json()
+                    except aiohttp.ClientResponseError:
+                        await asyncio.sleep(1)
+                        continue
+                    else:
+                        return data
 
     async def latest_id(self):
         data = await self.get_comic()
