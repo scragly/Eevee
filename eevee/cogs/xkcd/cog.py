@@ -114,5 +114,7 @@ class XKCD(Cog):
     async def xkcd_cancel(self, ctx):
         if not self.update_task:
             return await ctx.send("No update task running.")
+        task = self.update_task
         self.cancel_task()
         await ctx.send("Update task cancelled.")
+        await task
