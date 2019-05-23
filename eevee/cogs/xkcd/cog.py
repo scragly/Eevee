@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 
 from async_timeout import timeout
@@ -67,6 +68,7 @@ class XKCD(Cog):
                 since_change = datetime.utcnow() - last_change
                 if since_change.total_seconds() > 5:
                     await update_msg.edit(content=update_text + f"\n{data['num']}/{latest} collected.")
+            await asyncio.sleep(0.1)
 
         if feedback_dest:
             await update_msg.edit(content=update_text + f"\n{latest}/{latest} collected.")
