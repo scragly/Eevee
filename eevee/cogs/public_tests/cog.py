@@ -418,15 +418,3 @@ class PublicTests:
         await asyncio.sleep(0.5)
         await msg.add_reaction(dv)
         await ctx.message.delete()
-
-    @command()
-    async def xkcd(self, ctx, comic_number: int = None):
-        url_num = f"{comic_number}/" if comic_number else ""
-        url = f"https://xkcd.com/{url_num}info.0.json"
-        async with async_timeout.timeout(10):
-            async with ctx.bot.session.get(url) as response:
-                xkcd_data = await response.json()
-        title = (f"{xkcd_data['safe_title']} - "
-                 f"{xkcd_data['num']} - "
-                 f"{xkcd_data['year']}/{xkcd_data['month']}/{xkcd_data['day']}")
-        await ctx.embed(title, footer=xkcd_data['alt'], image=xkcd_data['img'])

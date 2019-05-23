@@ -3,8 +3,8 @@ url = "https://pypi.python.org/simple"
 verify_ssl = true
 name = "pypi"
 
-[packages] 
-discord-py = {git = "https://github.com/Rapptz/discord.py",ref = "3f06f24"}
+[packages]
+"discord.py" = {git = "https://github.com/Rapptz/discord.py",ref = "3f06f24"}
 python-dateutil = ">=2.6"
 asyncpg = ">=0.13"
 python-levenshtein = ">=0.12"
@@ -17,6 +17,7 @@ numpy = "*"
 pendulum = "*"
 pytz = "*"
 matplotlib = "*"
+async_timeout = "~=3.0"
 
 [requires]
 python_version = "3.6"
