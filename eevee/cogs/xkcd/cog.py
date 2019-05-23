@@ -1,10 +1,9 @@
-import asyncio
 from datetime import datetime
 
-import aiohttp
+import asyncpg
 from async_timeout import timeout
 
-from eevee import command, Cog
+from eevee import command, Cog, group
 
 LATEST_URL = "https://xkcd.com/info.0.json"
 ISSUE_URL = "https://xkcd.com/{comic_num}/info.0.json"
@@ -16,6 +15,13 @@ class XKCD(Cog):
         self.bot = bot
         self.table = bot.dbi.table('xkcd')
         self.update_task = None
+        bot.loop.create_task(self.prepare_db())
+
+    async def prepare_db(self):
+        try:
+            await self.bot.dbi.execute_query("CREATE EXTENSION fuzzystrmatch;")
+        except asyncpg.DuplicateObjectError:
+            pass
 
     async def get_comic(self, issue: int = None):
         if issue in [404]:
@@ -90,7 +96,7 @@ class XKCD(Cog):
 
         self.update_task = None
 
-    @command()
+    @group()
     async def xkcd(self, ctx, comic_number: int = None):
         data = await self.get_comic(comic_number)
         if not data:
@@ -106,17 +112,33 @@ class XKCD(Cog):
             self.update_task.cancel()
         self.update_task = None
 
-    @command()
-    async def xkcd_update(self, ctx):
+    @xkcd.command()
+    async def update(self, ctx):
         if self.update_task:
             return await ctx.send("An update is already in progress.")
         self.update_task = ctx.bot.loop.create_task(self.update_data(ctx))
 
-    @command()
-    async def xkcd_cancel(self, ctx):
+    @xkcd.command()
+    async def cancel(self, ctx):
         if not self.update_task:
             return await ctx.send("No update task running.")
         task = self.update_task
         self.cancel_task()
         await ctx.send("Update task cancelled.")
         await task
+
+    @xkcd.command()
+    async def search(self, ctx, *, search_terms):
+        results = await ctx.bot.dbi.execute_query(
+            "SELECT id, safe_title, levenshtein(safe_title, '$1') AS distance "
+            "FROM xkcd ORDER BY distance ASC LIMIT 4;",
+            search_terms
+        )
+
+        best_result = results[0]
+        title = (
+            f"{best_result['safe_title']} - "
+            f"{best_result['id']} - "
+            f"{best_result['year']}/{best_result['month']}/{best_result['day']}"
+        )
+        await ctx.embed(title, footer=best_result['alt'], image=best_result['img'])
