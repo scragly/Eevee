@@ -20,10 +20,14 @@ class XKCD(Cog):
         url = ISSUE_URL.format(comic_num=issue) if issue else LATEST_URL
         while True:
             async with self.bot.session.get(url) as r:
-                if "text/html" in r.content_type:
+                try:
+                    data = await r.json()
+                except aiohttp.ClientResponseError:
                     await asyncio.sleep(1)
                     continue
-                return await r.json()
+                else:
+                    return data
+
 
     async def latest_id(self):
         data = await self.get_comic()
