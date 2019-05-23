@@ -131,7 +131,8 @@ class XKCD(Cog):
     @xkcd.command()
     async def search(self, ctx, *, search_terms):
         results = await ctx.bot.dbi.execute_query(
-            "SELECT id, safe_title, levenshtein(safe_title, $1) AS distance "
+            "SELECT id, safe_title, year, month, day, img, alt, "
+            "levenshtein(safe_title, $1) AS distance "
             "FROM xkcd ORDER BY distance ASC LIMIT 4;",
             search_terms
         )
