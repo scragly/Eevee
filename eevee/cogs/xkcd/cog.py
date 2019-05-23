@@ -1,3 +1,4 @@
+import typing
 from datetime import datetime
 
 import asyncpg
@@ -96,8 +97,8 @@ class XKCD(Cog):
 
         self.update_task = None
 
-    @group()
-    async def xkcd(self, ctx, comic_number: int = None):
+    @group(invoke_without_command=True)
+    async def xkcd(self, ctx, comic_number: typing.Optional[int]):
         data = await self.get_comic(comic_number)
         if not data:
             return await ctx.error("Invalid XKCD number.")
