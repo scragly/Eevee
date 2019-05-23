@@ -107,7 +107,7 @@ class XKCD(Cog):
     async def xkcd_update(self, ctx):
         if self.update_task:
             return await ctx.send("An update is already in progress.")
-        self.update_task = asyncio.create_task(self.update_data(ctx))
+        self.update_task = ctx.bot.loop.create_task(self.update_data(ctx))
         self.update_task.add_done_callback(self.cancel_task)
 
     async def xkcd_cancel(self, ctx):
