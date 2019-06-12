@@ -1,30 +1,58 @@
-# Eevee v2 - In Developement
-A Discord helper bot for Pokemon Go communities.
+# Eevee - A Discord Bot Framework
 
-Eevee is a Pokemon Go community manager and coordinator bot for Discord servers, upholding the ideal to respect the Terms of Service of both the game and the associated accounts.
+Eevee serves to provide a different approach to the default discord.py commands extension, as well providing an extensive featureset to make developing with a breeze.
 
-It is written in Python 3.6.1 using the [discord.py v1.0.0a](https://github.com/Rapptz/discord.py/tree/rewrite) library.
+The project requires [Python 3.7+](https://www.python.org/downloads/) and depends on [discord.py v1.2](https://github.com/Rapptz/discord.py/tree/rewrite).
 
-This version of Eevee is currently under heavy development and is not recommended for any type of actual usage.
-
-This update aims to meet the following goals:
-- [x] Compatible with [discord.py v1.0.0a](https://github.com/Rapptz/discord.py/tree/rewrite)
-- [x] Able to be installed as a pip package with dependancies auto-installing
-- [x] Redesign Meowth into a modular structure, with extension management
-- [x] Ability to update most of the codebase with no downtime or loss of data
-- [x] Able to perform all current features of Eevee v1 or excel beyond it
-
-## Proposed Structure:
-- Docs
-- Readme
-- Setup
-- Meowth
-    - Core
-    - Config
-    - Data Management
-    - Cogs
-	    - Server Greeting
-	    - Team Management
-	    - Wild Tracking
-	    - Raid Management
-        - Gym Management
+The framework aims to provide the following features:
+- [ ] Bot, Commands and Events Framework
+  - [ ] Globally Accessible Contexts
+  - [ ] Configurable and Custom Command Parsers
+  - [ ] Extensible and Replaceable Discord Objects
+  - [ ] Logging
+  - [ ] Configuration Management
+- [ ] Administration Toolkit
+  - [ ] Permissions Management
+  - [ ] Shard Management and IPC
+  - [ ] Statistics
+- [ ] Data Management Toolkit
+  - [ ] Persistant Storage
+    - [ ] PostgreSQL
+    - [ ] SQLite
+    - [ ] JSON
+    - [ ] MongoDB
+  - [ ] In-Memory Storage
+    - [ ] Redis
+    - [ ] MongoDB with Percona
+  - [ ] ORM Support
+    - [ ] GINO
+    - [ ] Tortoise ORM
+  - [ ] Basic Query API
+    - [ ] Parameterised SQL
+    - [ ] Functional Query Builder
+  - [ ] Cache Management
+- [ ] Discord UI Toolkit
+  - [ ] Reactions
+  - [ ] Message Replies
+  - [ ] Paginators
+  - [ ] Multi-Event Prompts
+  - [ ] Interaction Sessions
+  - [ ] Command Help
+  - [ ] Tutorial Sessions
+- [ ] Web UI and API Toolkit
+  - [ ] Default Web Portal
+  - [ ] Extensible Bot API
+  - [ ] Web Framework Integrations
+    - [ ] Flask
+    - [ ] Sanic
+    - [ ] Django
+- [ ] Internationalisation Toolkit
+  - [ ] Localisation Integrations
+    - [ ] Transifex
+    - [ ] Crowdin
+    - [ ] POEditor
+  - [ ] Localisation Granularity
+    - [ ] Per Guild
+    - [ ] Per Channel
+    - [ ] Per Member
+- [ ] Audio Toolkit
