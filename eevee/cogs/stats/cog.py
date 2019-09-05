@@ -164,7 +164,7 @@ class Statistics:
         plot_bytes.seek(0)
         fig.clf()
 
-        fname = f"{ctx.guild.name} - Message Activity.png"
+        fname = f"guild-msg-activity-{ctx.guild.id}.png"
         plot_file = discord.File(plot_bytes, filename=fname)
 
         embed = await ctx.embed(f"Hourly Message Activity - {ctx.guild.name}", send=False)
