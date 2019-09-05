@@ -127,3 +127,46 @@ class Statistics:
             f"Message Activity Per Member - {ctx.guild.name}", send=False)
         embed.set_image(url=f"attachment://{fname}")
         await ctx.send(file=plot_file, embed=embed)
+
+    @command()
+    async def msgactivity(self, ctx):
+        """
+        Shows the hourly message activity from saved message history
+        for all channels the bot can see.
+        """
+
+        table = ctx.bot.dbi.table('discord_messages')
+        table.query('count(*) AS count', "date_part('hour', to_timestamp(sent)) AS hour")
+        table.query.where(is_edit=False, guild_id=ctx.guild.id).group_by('hour')
+        rawdata = await table.query.get()
+        data = {r['hour']: r['count'] for r in rawdata}
+
+        matplotlib.rc('font', family='Roboto Medium')
+        fig, ax = plt.subplots(linewidth=0, tight_layout=True)
+        fig.set_size_inches(12, 5)
+        ax.tick_params(labelsize=20, color='lightgrey', labelcolor='lightgrey')
+        ax.plot(list(data.keys()), list(data.values()), color='r', linewidth=4)
+        ax.set_xlabel("UTC Hours", color='lightgrey', fontsize="xx-large")
+        plt.xticks(list(data.keys()))
+        for i in list(data.keys()):
+            ax.axvline(x=i)
+
+        plot_bytes = io.BytesIO()
+
+        fig.savefig(
+            plot_bytes,
+            format='png',
+            facecolor='#32363C',
+            transparent=True,
+            antialiased=True
+        )
+
+        plot_bytes.seek(0)
+        fig.clf()
+
+        fname = f"{ctx.guild.name} - Message Activity.png"
+        plot_file = discord.File(plot_bytes, filename=fname)
+
+        embed = await ctx.embed(f"Hourly Message Activity - {ctx.guild.name}", send=False)
+        embed.set_image(url=f"attachment://{fname}")
+        await ctx.send(file=plot_file, embed=embed)
