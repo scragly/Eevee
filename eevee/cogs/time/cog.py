@@ -192,7 +192,7 @@ class Time(Cog):
         """Shows a member's current local time."""
         member = member or ctx.author
         timezone = await self.get_timezone(member.id)
-        if not timezone:
+        if not timezone or timezone == "None":
             if ctx.author == member:
                 return await ctx.error(
                     f'{member.display_name} has not set a timezone yet.',
